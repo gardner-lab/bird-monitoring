@@ -1,6 +1,7 @@
 // Parameters
-int numBoxes = 1;
+int numBoxes = 3;
 static int bytesPerFloat = 4;
+static int trackedParameters = 3; // Number of parameters that are being sent per box
 static int LF = 10; // Line-feed in ASCII
 
 void setup() {
@@ -25,14 +26,14 @@ void serialEvent() {
   switch (newByte) {
     case 72:
       // Received H (handshake)
-      //sendHandshake();
+      sendHandshake();
       break;
     case 78:
       // Received N (new data)
-      //sendNewData();
+      sendNewData();
       break;
   }
-  sendHandshake();
+  //sendHandshake();
 }
 
 void sendHandshake() {
@@ -40,15 +41,15 @@ void sendHandshake() {
 }
 
 void sendNewData() {
-  int variance = 20; // Amount of variance to have in signals
+  int variance = 5; // Amount of variance to have in signals
   // Declare variables to transmit
   byteFloat temp;
   byteFloat humidity;
   byteFloat door;
 
   // Acquire data from the analog sensors
-  float inputTempVoltage = 64;
-  float inputHumidityVoltage = 24;
+  float inputTempVoltage = 71;
+  float inputHumidityVoltage = 60;
   float inputDoorVoltage = 1;
 
   // Convert the input from voltage
@@ -64,10 +65,13 @@ void sendNewData() {
   // First, send the number of boxes, so Processing knows what to expect
   Serial.write(numBoxes);
 
+  // Second, then the number of tracked parameters that will be expected for each box
+  Serial.write(trackedParameters);
+
   // Then, for each box, send the necesary information
   for (int i = 0; i < numBoxes; i++) {
-    temp.floatVal += random(0, variance * 10) / 10;
-    humidity.floatVal += random(0, variance * 10) / 10;
+    temp.floatVal += random(0, variance * 10) / 10 - variance/2;
+    humidity.floatVal += random(0, variance * 10) / 10 - variance/2;
     Serial.write(temp.byteVal, bytesPerFloat);
     Serial.write(humidity.byteVal, bytesPerFloat);
     Serial.write(door.byteVal, bytesPerFloat);
