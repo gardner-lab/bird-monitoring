@@ -3,15 +3,23 @@ class birdBoxManager {
   // Box managing variables
   birdBox[] boxArray; // Array containing each box
   int numBoxes; // Number of bird boxes that are being managed
+  int numParams = numTrackedParameters; // Number of parameters per box that are being tracked
+  fileManager fManager; // The file manager used by this program.  It will be used by the birdBoxes to keep track of writing files
 
   // Arduino variables
   Serial port; // Port to connect to the arduino over
   String portName; // Name of port to connect to Arduino with
   int baudRate; // Baudrate for connection with Arduino
   int fetchTime = 2000; // Number of milliseconds to wait before getting new data 
-  int lastFetch = -2*fetchTime; // The time at which the last data was fetched (Initialized to have first fetch occur immediately)
-  int serialStatus = DISCONNECTED; // If the program is currently in communication with the Arduino
+  long lastFetch = -2*fetchTime; // The time at which the last data was fetched (Initialized to have first fetch occur immediately)
+  int serialStatus = DISCONNECTED; // Status of the connection with the Arduino
   boolean receivedGoodData = false; // Has Processing received any good data yet? (Used to treat bug where Arduino sends only 0's for values at first)
+
+  // Parameters needed for the emailing function (for arduino related problems
+  String emailAddressesFileName; // Name of the file that has all of the email addresses
+  Emailer emailer; // The oject responsible for emailing users if anything goes wrong
+  String curWarningMessage = ""; // The current message that the Emailer has
+  int lastSerialStatus = clearFlag(); // The status as it was the last time the Emailer was contacted (used to see if the message should be changed)
 
   // Drawing variables
   int warningBoxHeight = 20; // Height of warning box along bottom for serial connection
@@ -27,43 +35,103 @@ class birdBoxManager {
   int boxX; // Each box's X position
   PApplet sketchPApplet; // This sketch's PApplet
 
-  birdBoxManager(String portNameIn, int baudRateIn, int arrayXIn, int arrayYIn, int arrayWidthIn, int arrayHeightIn, PApplet sketchPAppletIn) {
-    // Note: ArrayXIn and arrayYIn define center of entire array
-    // Record the sketch PApplet
-    sketchPApplet = sketchPAppletIn;
+  // ControlP5 object to control any interactivity with the GUI
+  ControlP5 cp5;
+  ControlFont cFont; // Font to be used on most text in window
+  Textlabel warningLabel; // The label to give updates on the state of the serial connection
 
-    // Start communication with Arduino
+  birdBoxManager(String portNameIn, int baudRateIn, int fetchTimeIn, PApplet sketchPAppletIn) {
+    // Note: managerX and managerY define center of entire array
+
+    // Save all input variables
     portName = portNameIn;
     baudRate = baudRateIn;
+    fetchTime = fetchTimeIn;
+    sketchPApplet = sketchPAppletIn;
 
-    // Start by openning a port
+    // Define the dimensions of the manager's display (use the full window)
+    int managerX = int(.5*width);
+    int managerY = int(.5*height);
+    int managerWidth = width;
+    int managerHeight = height;
+
+    // Start communication with Arduino
+    // Start by opening a port
     openNewPort();
+
+    // Create a file manager for data recording
+    fManager = new fileManager();
+
+    // Then, get the number of boxes, and start building the GUI
     arduinoConnect();
 
     // Create box array
     boxArray = new birdBox[numBoxes];
 
     // Assign a position, height, and width to each box
-    boxBufferedHeight = (arrayHeightIn - heightEdgeBuffer*2 - warningBoxHeight)/numBoxes; // Height of each box including buffer
+    boxBufferedHeight = (managerHeight - heightEdgeBuffer*2 - warningBoxHeight)/numBoxes; // Height of each box including buffer
     boxHeight = boxBufferedHeight - 2*heightBuffer; // Height of each box without buffer
-    boxWidth = arrayWidthIn - 2*widthBuffer; // Width of each box
-    boxX = arrayXIn; // Each box's X position
+    boxWidth = managerWidth - 2*widthBuffer; // Width of each box
+    boxX = managerX; // Each box's X position
 
     // Calculate the space on the GUI allocated to each box, and create it
     for (int i = 0; i<numBoxes; i++) {
-      int top = arrayYIn  - arrayHeightIn/2 + heightEdgeBuffer;
+      int top = managerY  - managerHeight/2 + heightEdgeBuffer;
       int boxY = top + (boxBufferedHeight/2)*(2*i + 1); // Each box's Y position
       boxArray[i] = new birdBox(boxX, boxY, boxWidth, boxHeight, this);
     }
 
     // Calculate space on GUI for warning box
-    int right = arrayXIn + arrayWidthIn/2 - widthBuffer;
+    int right = managerX + managerWidth/2 - widthBuffer;
     warningBoxX = right - warningBoxWidth/2;
-    int bottom = arrayYIn + arrayHeightIn/2 - heightEdgeBuffer;
+    int bottom = managerY + managerHeight/2 - heightEdgeBuffer;
     warningBoxY = bottom - warningBoxHeight/2;
+    // Set up text in warning box
+    cp5 = new ControlP5(sketchPApplet);
+    int fontSize = 18;
+    cFont = new ControlFont(createFont("Helvetica", fontSize));
+    warningLabel = cp5.addTextlabel("Warning")
+      .setValue("")
+      .setPosition(right - warningBoxWidth, bottom - warningBoxHeight)
+      .setSize(warningBoxWidth, warningBoxHeight)
+      .setFont(cFont);
+
+    // Set up the Emailer
+    emailAddressesFileName = "birdBoxEmailAddresses.csv"; 
+    float minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
+    emailer = new Emailer(emailAddressesFileName, "", minutesToWaitBeforeEmailing, "Arduino connection"); // The second field is blank so that the Emailer extracts ALL email addresses from the file
 
     // Get first measurement from arduino
     getNewData();
+  }
+
+  void setupEmailIfNeeded() {
+    if (!flagIsClear(serialStatus)) {
+      // If there are some warnings, build up a message to send to the Emailer
+      if (lastSerialStatus != serialStatus) {
+        // If a new warning has occurred, rebuild the message
+        // Otherwise, just send the same message as last time (don't change curMessage)
+
+        curWarningMessage = "";
+        String nL = "\r\n"; // New line character
+        if (testFlag(serialStatus, DISCONNECTED)) {
+          curWarningMessage += "Arduino is disconnected" + nL;
+        }
+        if (testFlag(serialStatus, NUMBOXMISMATCH)) {
+          curWarningMessage += "Arduino connection problem (number of boxes mismatch)" + nL;
+        }
+        if (testFlag(serialStatus, NUMPARAMSMISMATCH)) {
+          curWarningMessage += "Arduino connection problem (number of parameters mismatch)" + nL;
+        }
+      }
+      emailDebug("Warning exists, notifying Emailer about: " + curWarningMessage);
+    }
+
+    // Send the message to the Emailer
+    emailer.checkIfEmailIsNeeded(!flagIsClear(serialStatus), curWarningMessage);
+
+    // Keep track of how the status flag changes
+    lastSerialStatus = serialStatus;
   }
 
   void draw() {
@@ -81,8 +149,17 @@ class birdBoxManager {
       port = new Serial(sketchPApplet, portName, baudRate);
     } 
     catch (Exception e) {
+      serialDebug("Cannot find " + portName);
       port = new  Serial(sketchPApplet, Serial.list()[0], baudRate);
     }
+
+    serialDebug("Serial information:");
+    serialDebug(sketchPApplet.toString());
+    serialDebug(portName);
+    serialDebug(Integer.toString(baudRate));
+
+    // Wait for Arduino to be ready
+    delay(1000);
   }
 
   void reopenPort() {
@@ -101,12 +178,30 @@ class birdBoxManager {
     }
   }
 
-  void readNumberOfBoxes() {
+  int readNumberOfBoxes() {
     // Read the number of boxes from the port
     int numBoxesIn = port.read();
+    dataDebug("Number of boxes: " + numBoxesIn);
     if (numBoxesIn != numBoxes) {
-      serialStatus = NUMBOXMISMATCH;
+      serialStatus = setStatus(serialStatus, NUMBOXMISMATCH);
+      errorReporting("Number of boxes mismatch");
+    } else {
+      serialStatus = clearStatus(serialStatus, NUMBOXMISMATCH);
     }
+    return numBoxesIn;
+  }
+
+  int readNumberOfParameters() {
+    // Read the number of boxes from the port
+    int numParamsIn = port.read();
+    dataDebug("Number of parameters: " + numParamsIn);
+    if (numParamsIn != numParams) {
+      serialStatus = setStatus(serialStatus, NUMPARAMSMISMATCH);
+      errorReporting("Number of parameters mismatch");
+    } else {
+      serialStatus = clearStatus(serialStatus, NUMBOXMISMATCH);
+    }
+    return numParamsIn;
   }
 
   void drawWarningBox() {
@@ -114,17 +209,29 @@ class birdBoxManager {
     fill(getSerialStatusColor());
     noStroke();
     rect(warningBoxX, warningBoxY, warningBoxWidth, warningBoxHeight);
-    // ADD TEXT TO THE BOX TO MAKE THE SERIAL STATUS CLEAR IT CLEAR
+    warningLabel.setValue(getWarningBoxString());
+  }
+
+  String getWarningBoxString() {
+    String s;
+    if (flagIsClear(serialStatus)) {
+      s = "Connection Functional";
+    } else if (testFlag(serialStatus, DISCONNECTED)) {
+      s = "Disconnected";
+    } else {
+      s = "Communication error";
+    } 
+    return s;
   }
 
   color getSerialStatusColor() {
     color c;
-    if (serialStatus == CONNECTED) {
+    if (flagIsClear(serialStatus)) {
       c = GREEN;
-    } else if (serialStatus == NUMBOXMISMATCH) {
-      c = YELLOW;
-    } else {
+    } else if (testFlag(serialStatus, DISCONNECTED)) {
       c = RED;
+    } else {
+      c = YELLOW;
     } 
     return c;
   }
@@ -133,128 +240,207 @@ class birdBoxManager {
     // Connect to the arduino for the first time, get number of boxes
     // Write H (handshake) to the serial port
     boolean connected  = arduinoSendSignal("H");
-    println(connected);
+    serialDebug("Connected to Arduino: " + connected);
     if (connected) {
       numBoxes = port.read();
-      println("Number of boxes from Arduino = " + numBoxes);
+      serialDebug("Initial number of boxes from Arduino = " + numBoxes);
     } else {
       numBoxes = 3;
     }
   }
 
-  void setFetchTime(int fetchTimeIn) {
-    fetchTime = fetchTimeIn;
+  void getFakeArduinoData() {
+    Calendar curTime = Calendar.getInstance();
+    float var = 30; // Variance of the random data
+    float tempBase = 61;
+    float humidityBase = 40;
+    if ((curTime.getTimeInMillis() - lastFetch) > fetchTime) {
+      // Populate the boxes with fake data
+      for (int i = 0; i < numBoxes; i++) {
+        // For each box
+        float[] parameters = new float[numParams];
+        for (int j = 0; j < numParams; j++) {
+          // For each parameter
+          switch(j) {
+          case 0:
+            parameters[j] = tempBase + random(0, var) - var/2;
+            break;
+          case 1:
+            parameters[j] = humidityBase + random(0, var) - var/2;
+            break;
+          case 2:
+            parameters[j] = 1;
+            break;
+          default:
+            parameters[j] = 0;
+            break;
+          }
+        }
+        dataDebug("New Data:");
+        boxArray[i].setNewData(new trackedParametersFloat(parameters, numParams).parameters, curTime);
+      }
+
+      // Set the last fetch time
+      lastFetch = curTime.getTimeInMillis();
+    }
   }
+
 
   void getNewData() {
     // Check how long has passed since the last time data was fetched
-    int curTime = millis();
-    if ((curTime - lastFetch) > fetchTime) {
-      boolean viableData = false; // Boolean to decide whether or not to send this new data to the Arduino
+    //int curTime = millis();
+    Calendar curTime = Calendar.getInstance();
+    if ((curTime.getTimeInMillis() - lastFetch) > fetchTime) {
+      List<trackedParametersFloat> structureList = new LinkedList<trackedParametersFloat>(); // Data which is extracted and sent to the boxes
+      boolean viableData = false; // Boolean to decide whether or not to send this new data to the boxes
 
-      // Write "N" (new data) to the serial port
+      // Write "N" (new data) to the serial port, to gather the data
       boolean arduinoResponded = arduinoSendSignal("N"); // Did the Arduino respond with data?
       if (arduinoResponded) {
-        //// Read new data
+        viableData = true;
+      }
+
+      // Extract the meta-data
+      if (viableData) {
+        // Check the number of boxes from the Arduino
         readNumberOfBoxes();
-        //println("Number of boxes: " + numBoxesIn);
+
+        // Check the number of parameters from the Arduino
+        readNumberOfParameters();
 
         // Check that the number of boxes is the same (could be indicative of a problem otherwise)
-        if (serialStatus != NUMBOXMISMATCH) {
-          // The call to readNumberOfBoxes() above set the serialStatus variable, so read that variable to see if the data is viable
+        if (flagIsClear(serialStatus)) {
+          // Read serialStatus to see if the data is viable
           viableData = true;
+        } else {
+          viableData = false;
         }
       }
 
+      // If the meta-data is correct, then extract the data into a datastructure (structureList)
       if (viableData) {
-        // Read the data from the Serial buffer into a byte stream
-        int numTotalBytes = numBoxes*bytesPerFloat*numTrackedParameters + 1; // 4 bytes per tracked parameter per box, plus a line-feed
-        byte[] newData = new byte[numTotalBytes];
-        port.readBytesUntil(LF, newData);
-        //println(newData);
+        // Read the data from the Serial buffer into a byte stream, then convert into floats
+        structureList = readByteData(numBoxes, numParams);
 
         // Check that there is no strange values on the connection (existing bug: Arduino will send all 0's for values (normal numBoxes, but values will be wrong), but then will correct itself)
-        if (!receivedGoodData) {
-          for (int i = 0; i < numTotalBytes; i++) {
-            if (newData[i] != 0) {
-              // Has finally received good data from the Arduino
-              // Start actual data logging, and break out of this loop
-              receivedGoodData = true;
-              break;
-            }
-          }
-        }
+        viableData = checkForDataBugs(structureList);
+      }
 
-        if (!receivedGoodData) {
-          // If no good data has been received, then the current data is not viable, and should not be sent
-          viableData = false; 
-          println("Received all zero's from Arduino: Ignoring");
-        }
-
-        // If this data is still viable (passed "Good data" test, above), send it to the boxes
-        if (viableData) {
-          // Separate input into byte-streams for each box
-          // Update each box with new data
-          //println("New Data:");
-          for (int i = 0; i < numBoxes; i++) {
-            // Convert this box's byte data into values
-            float[] boxData = new float[numTrackedParameters];
-            for (int j = 0; j < numTrackedParameters; j++) {
-              byte[] byteData = new byte[bytesPerFloat];
-              System.arraycopy(newData, bytesPerFloat*(i*numTrackedParameters + j), byteData, 0, bytesPerFloat);
-              // Go through each parameter in this box's byte array, and convert the sets of 4 into a single float
-              boxData[j] = ByteBuffer.wrap(byteData).order(ByteOrder.LITTLE_ENDIAN).getFloat();
-            }
-            boxArray[i].setNewData(boxData, curTime);
-            //println(boxData);
-            //println();
-          }
-          //println();
+      // If this data is still viable, send it to the boxes
+      if (viableData) {
+        // Update each box with new data
+        dataDebug("New Data:");
+        for (int i = 0; i < numBoxes; i++) {
+          boxArray[i].setNewData(structureList.get(i).parameters, curTime);
         }
 
         // Set the last fetch time
-        lastFetch = millis();
+        lastFetch = curTime.getTimeInMillis();
       }
+
 
       // If current data ended up not being viable, send error data to boxes
       if (!viableData) {
-        println("Data error at time " + (float)curTime/1000 + " seconds");
-        // Set new data to be -1's
+        // Report any errors that occured
+        errorReporting("Data error at " + sdf.format(curTime.getTime()) + ":");
+        if (!receivedGoodData) {
+          errorReporting("Due to all 0's");
+        }
+        if (!arduinoResponded) {
+          errorReporting("Due to no Arduino response");
+        }
+        if (testFlag(serialStatus, NUMBOXMISMATCH)) {
+          errorReporting("Due to mismatched number of boxes");
+        }
+        if (testFlag(serialStatus, NUMPARAMSMISMATCH)) {
+          errorReporting("Due to mismatched number of parameters");
+        }
+        errorReporting("");
+
+        // Send error data to boxes
         for (int i = 0; i < numBoxes; i++) {
-          float[] errorData = {-1, -1, -1}; 
-          boxArray[i].setNewData(errorData, curTime);
+          boxArray[i].errorData(numParams, curTime);
+        }
+
+        // If the arduino is not responding, attempt to reconnect to it
+        if (!arduinoResponded) {
+          serialDebug("Arduino not found: attempting to reconnect");
+          reopenPort();
+          if (flagIsClear(serialStatus)) {
+            // If Arduino has reconnected, then reattempt to get this data
+            serialDebug("Arduino reconnected, fetching new data");
+            getNewData();
+          }
         }
       }
 
-      if (!arduinoResponded) {
-        println("Arduino not found: attempting to reconnect");
-        reopenPort();
-        if (serialStatus == CONNECTED) {
-          // If Arduino has reconnected, then reattempt to get this data
-          println("Arduino reconnected, fetching new data");
-          getNewData();
+      // Update the emailer
+      setupEmailIfNeeded();
+    }
+  }
+
+  boolean checkForDataBugs(List<trackedParametersFloat> inputData) {
+    // Check for the "all-zeros" bug in the data
+    boolean viableData = true;
+    if (!receivedGoodData) {
+      for (int i = 0; i < inputData.size(); i++) {
+        // For each trackedParametersFloat object in structureList...
+        for (int j = 0; j < inputData.get(i).parameters.size(); j++) {
+          // For each parameter in the trackedParametersFloat object...
+          if (inputData.get(i).parameters.get(j) != 0) {
+            // Has finally received good data from the Arduino
+            // Start actual data logging, and break out of this loop
+            receivedGoodData = true;
+            break;
+          }
         }
       }
     }
+
+    if (!receivedGoodData) {
+      // If no good data has been received, then the current data is not viable, and should not be sent
+      viableData = false; 
+      dataDebug("Received all zero's from Arduino: Ignoring");
+    }
+
+    return viableData;
+  }
+
+  List<trackedParametersFloat> readByteData(int numBoxes, int numParameters) {
+    // Read all input data from the Arduino
+    int numTotalBytes = numBoxes*bytesPerFloat*numParameters + 1; // 4 bytes per tracked parameter per box, plus a line-feed
+    byte[] data = new byte[numTotalBytes];
+    port.readBytesUntil(LF, data); // Read the data from the Arduino
+    rawDataDebug("Raw data:");
+    rawDataDebug(Arrays.toString(data));
+
+    // Partition it into different trackedParametersFloat structures
+    List<trackedParametersFloat> structureList = new LinkedList<trackedParametersFloat>(); // Create a list of trackedParametersFloat structures, one for each box 
+    int bytesPerBox = numParameters*bytesPerFloat;
+    for (int i = 0; i < numBoxes; i++) {
+      byte[] thisBoxData = new byte[bytesPerBox];
+      System.arraycopy(data, bytesPerBox*i, thisBoxData, 0, bytesPerBox);
+      structureList.add(new trackedParametersFloat(thisBoxData, numParameters));
+    }
+
+    return structureList;
   }
 
   void setName(int boxInd, String birdName) {
     boxArray[boxInd].setName(birdName);
   }
 
-  void setStatus(int boxInd, int status) {
-    boxArray[boxInd].setStatus(status);
-  }
-
-  void setDoorClosed(int boxInd, boolean doorClosed) {
-    boxArray[boxInd].setDoorClosed(doorClosed);
+  void closeFileWriters() {
+    for (int i = 0; i < numBoxes; i++) {
+      boxArray[i].closeFileWriter();
+    }
   }
 
   boolean arduinoSendSignal(String call) {
     // Output is whether or not a response was received
     // Call the arduino (send the "call" string) and wait for a response (will call the arduino multiple times, every waitTime milliseconds
-    int waitTime = 200; // Number of milliseconds between each call
-    int maxCalls = 2; // Maxiumum number of times to call the arduino before giving up
+    int waitTime = 50; // Number of milliseconds between each call
+    int maxCalls = 10; // Maxiumum number of times to call the arduino before giving up
 
     // First, clear the serial buffer
     port.clear();
@@ -263,6 +449,7 @@ class birdBoxManager {
     int numTries = 0; // The number of times the program has tried to call the arduino
     boolean response = false;
     while (!response & numTries < maxCalls) {
+      serialDebug("Calling...");
 
       port.write(call); 
 
@@ -273,6 +460,7 @@ class birdBoxManager {
         // Wait for the arduino to send something (the number of boxes, specifically)
         if ((millis() - timeStart) > waitTime) {
           // If the wait time has expired, send another
+          serialDebug("No response");
           timeOut = true;
           numTries = numTries + 1;
           break;
@@ -286,12 +474,14 @@ class birdBoxManager {
 
     // Update the serialStatus variable
     if (response) {
-      serialStatus = CONNECTED;
+      serialDebug("Reponse");
+      serialStatus = clearFlag();
       // Set message on the Serial warning box
     } else {
-      serialStatus = DISCONNECTED;
+      serialStatus = setStatus(serialStatus, DISCONNECTED);
       // Set message on the Serial warning box
     }
+    serialDebug("");
 
     return response;
   }
