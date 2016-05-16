@@ -1,15 +1,22 @@
+// To-Do:
+#define aRefVoltage 3.41 // Reference voltage tied to 3.3V, multimeter found exact voltage (may want to check again)
+
 // Parameters
 int numBoxes = 3;
 static int bytesPerFloat = 4;
 static int trackedParameters = 3; // Number of parameters that are being sent per box
 static int LF = 10; // Line-feed in ASCII
-static float supply = 5.0;
 
 void setup() {
 
   // Serial
   Serial.begin(57600);
 
+  // Set reference voltage
+  analogReference(EXTERNAL);
+
+  // Set digital pins
+  pinMode(2,INPUT);
 }
 
 void loop() {
@@ -34,7 +41,6 @@ void serialEvent() {
       sendNewData();
       break;
   }
-  //sendHandshake();
 }
 
 void sendHandshake() {
@@ -78,9 +84,9 @@ void sendNewData() {
       Serial.write(humidity.byteVal, bytesPerFloat);
       Serial.write(door.byteVal, bytesPerFloat);
     } else {
-      temp.floatVal = getTempVal();
-      humidity.floatVal = getHumidityVal(temp.floatVal);
-      door.floatVal = 1;
+      temp.floatVal = getTempVal(i);
+      humidity.floatVal = getHumidityVal(i, temp.floatVal);
+      door.floatVal = getDoorVal(i);
 
       Serial.write(temp.byteVal, bytesPerFloat);
       Serial.write(humidity.byteVal, bytesPerFloat);
@@ -88,26 +94,35 @@ void sendNewData() {
     }
   }
 
-
-
   // Finally, send a line-feed, to signal the end of the transmission
   Serial.write(LF);
 }
 
-float getTempVal() {
-  float raw = analogRead(0);
-  float rawVolts = raw * (supply / 1023.0); // MORE PRECISE IF USING 3.3V
+float getTempVal(int boxNum) {
+  float raw = analogRead(trackedParameters * boxNum);
+  float rawVolts = raw * (aRefVoltage / 1023.0);
   float tempC = (rawVolts - .5) * 100;
   float tempF = tempC * (9 / 5) + 32;
   return tempF;
 }
 
-float getHumidityVal(float temp) {
-  float raw = analogRead(1);
-  float rawVolts = raw * (5.0 / 1023.0);
-  float sensorRH = ((rawVolts / supply) - .1515) / .00636;
+float getHumidityVal(int boxNum, float temp) {
+  float raw = analogRead(trackedParameters * boxNum + 1);
+  float rawVolts = raw * (aRefVoltage / 1023.0);
+  float sensorRH = ((rawVolts / aRefVoltage) - .1515) / .00636;
   float trueRH = sensorRH / (1.0546 - .00216 * temp);
   return trueRH;
+}
+
+float getDoorVal(int boxNum) {
+  float doorClosed;
+  int val = digitalRead(2);
+  if (val == HIGH) {
+    doorClosed = 1;
+  } else {
+    doorClosed = 0;
+  }
+  return doorClosed;
 }
 
 float tempConvert(float inputVoltage) {
