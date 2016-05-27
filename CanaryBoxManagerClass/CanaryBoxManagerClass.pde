@@ -97,7 +97,7 @@ class birdBoxManager {
       .setFont(cFont);
 
     // Set up the Emailer
-    emailAddressesFileName = "birdBoxEmailAddresses.csv"; 
+    emailAddressesFileName = mainDirectory + "birdBoxEmailAddresses.csv"; 
     float minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
     emailer = new Emailer(emailAddressesFileName, "", minutesToWaitBeforeEmailing, "Arduino connection"); // The second field is blank so that the Emailer extracts ALL email addresses from the file
 

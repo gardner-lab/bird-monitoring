@@ -90,6 +90,13 @@ void setup() {
   int fetchTime = 2000; // Number of milliseconds to wait before getting new data
   int baudRate = 57600; // Baudrate for the serial connection
   String arduinoPortName = "/dev/cu.usbserial-A700flOS";
+  
+  // Check if the main directory exists (if not, use the standard user pathway)
+  if (!(new File(mainDirectory).exists())) {
+    // Set the main path to be the user's main directory
+    errorReporting("Could not find directory \"" + mainDirectory + "\".  Using " + System.getProperty("user.dir") + " instead.");
+    mainDirectory = System.getProperty("user.dir");
+  }
 
   // Set up GUI
   // Create window

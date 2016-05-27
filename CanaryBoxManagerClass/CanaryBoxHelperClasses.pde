@@ -43,6 +43,7 @@ class Emailer {
       // The file is expected to be a csv with the following format (can be modified above):
       // The first record (row) will be a header (for user use, ignored)
       // Following rows will be: column 1: Notes (ignored), column 2: identifier, colums 3-inf: emails associated with this identifier
+      emailDebug("Looking for file \"" + infoFileName + "\"");
       BufferedReader reader = new BufferedReader(new FileReader(infoFileName));
 
       // Read and remove the header from the csv file

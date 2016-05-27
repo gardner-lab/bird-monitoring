@@ -191,7 +191,7 @@ class birdBox {
     bottomY = boxYIn + allHeight/2; // Position of bottom
 
     // Initialize parameters needed for the emailing function
-    emailAddressesFileName = "birdBoxEmailAddresses.csv";
+    emailAddressesFileName = mainDirectory + "birdBoxEmailAddresses.csv";
     //minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
 
     // Intialize the parameters for tracking social time
@@ -406,6 +406,15 @@ class birdBox {
     if (!writerInitialized) {
       ioDebug("Creating File Writer");
       ioDebug("Current directory: " + writerDirectory);
+
+      // Check if the writerDirectory exists (if not, use the standard user pathway)
+      File writerDirectoryFile = new File(writerDirectory);
+      if (!(writerDirectoryFile.exists())) {
+        // Set the main path to be the user's main directory
+        errorReporting("Could not find directory \"" + writerDirectory + "\".  Creating it.");
+        writerDirectoryFile.mkdir();
+      }
+
       fileWriter = new csvWriter(writerDirectory, birdName, headers, manager.fManager);
       ioDebug("File Writer created");
       writerInitialized = true;
@@ -535,7 +544,7 @@ class birdBox {
     }
     return dataIsErrored;
   }
-  
+
   boolean humidityDataIsError(float data) {
     boolean dataIsErrored = false;
     if (data == -1 || data < humidityErrorMin || data > humidityErrorMax) {
@@ -859,10 +868,10 @@ class birdBox {
     birdName = birdNameIn; // Update the current name
     if (!birdName.equals("")) {
       // If the new bird's name is not blank
-      if (!birdName.equals(lastBirdName)) {
+      //if (!birdName.equals(lastBirdName)) {
         // If the bird's name is new
         birdInBoxStart();
-      }
+      //}
     } else {
       birdInBoxEnd();
     }
