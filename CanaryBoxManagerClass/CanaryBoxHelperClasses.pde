@@ -100,16 +100,16 @@ class Emailer {
       String[] nonDuplicateEmailAddresses = new String[curLocNewAddresses];
       for (int i = 0; i < curLocNewAddresses; i++) {
         // Go through each email in the array extracted from the file
-        boolean exists = false;
+        boolean emailExistsInArray = false; 
         for (int j = 0; j < numberOfEmailAddresses; j++) {
           // Go through each email in the emailAddresses array, to see if the current address (newEmailAddresses[i]) exists in it already 
           if (nonDuplicateEmailAddresses[j].equals(newEmailAddresses[i])) {
-            exists = true;
+            emailExistsInArray = true;
             break;
           }
         }
 
-        if (!exists) {
+        if (!emailExistsInArray) {
           nonDuplicateEmailAddresses[numberOfEmailAddresses++] = newEmailAddresses[i];
         }
       }
@@ -134,7 +134,13 @@ class Emailer {
     
     // Catch errors on the number of emails
     if (numberOfEmailAddresses < 1) {
-     errorReporting("No email addresses found for " + emailIdentifier); 
+     errorReporting("No email addresses found for " + emailIdentifier);
+    } else {
+      emailDebug(numberOfEmailAddresses + " addresses found for " + birdName + ":");
+      for (int i = 0;i<numberOfEmailAddresses;i++) {
+       emailDebug(emailAddresses[i].toString());
+      }
+      emailDebug("");
     }
 
     // Finish finalizing parameters needed for the computer to send an email

@@ -204,7 +204,8 @@ class fileManager {
   public boolean closeFile(file fileToClose) {
     boolean success;
     synchronized(fileList) {
-      success = fileList.remove(fileToClose); // Remove the specified file
+      fileToClose.closeFile(); // Close the file
+      success = fileList.remove(fileToClose); // Remove the specified file from the FileManager's list
     }
     return success;
   }
@@ -249,7 +250,7 @@ public abstract class file<T> {
 
   file(String fileNameIn) {
     fileName = fileNameIn;
-    fileWriter = openFile(fileName);
+    fileWriter = openFile();
   }
 
   // Public interface for getting the file's name
@@ -266,7 +267,7 @@ public abstract class file<T> {
   }
 
   // Private method for opening a new file
-  protected FileWriter openFile(String fileName) {
+  protected FileWriter openFile() {
     // Open a FileWriter object using the filename provided
     FileWriter fileWriterOut = null;
     synchronized(file.this) {
@@ -287,25 +288,23 @@ public abstract class file<T> {
   // Public method for closing this file
   public boolean closeFile() {
     boolean successfulClosing = false;
-    ioDebug("Closing file");
+    synchronized(file.this) {
+      ioDebug("Closing file: " + fileName);
 
-    // Close the fileWriter
-    try {
-      fileWriter.close();
-    } 
-    catch (IOException e) {
-      errorReporting("Error on closing file:");
-      errorReporting(e.toString());
-      errorReporting("");
+      // Close the fileWriter
+      try {
+        fileWriter.close();
+      } 
+      catch (IOException e) {
+        errorReporting("Error on closing file:");
+        errorReporting(e.toString());
+        errorReporting("");
+      }
     }
     return successfulClosing;
   }
 
   // Private methods for writing lines to file
-  //protected void doHeaderWriting(String header) {
-  //  // Write the header to file
-  //  writeLineString(header);
-  //}
   protected void writeLineString(String inputLine) {
     String fullLine = inputLine + newLineCharacter;
     synchronized (fileWriter) {
@@ -338,7 +337,7 @@ class csvFile extends file<List<Float>> {
 
     // Next, add data
     for (int i = 0; i<writingData.size(); i++) {
-      sb.append(writingData.get(i).toString());
+      sb.append(String.format("%.1f", writingData.get(i)));
       if (i < (writingData.size() - 1)) {
         sb.append(","); // If it is not the last line, add a comma
       }

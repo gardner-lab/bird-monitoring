@@ -55,12 +55,23 @@ class birdBox {
   LinkedList<Float> humidityDataHour; // Data for humidity, hour scale
   LinkedList<Float> tempDataDay; // Data for temperature, day scale
   LinkedList<Float> humidityDataDay; // Data for humidity, day scale
+  LinkedList<Float> timeDataMin; // List which holds all of the time points, minute scale
+  LinkedList<Float> timeDataHour; // List which holds all of the time points, hour scale
+  LinkedList<Float> timeDataDay; // List which holds all of the time points, day scale
+  LinkedList<Float> tempSmoothingFilter; // List which holds the last sizeSmoothingFilter number of temperature data points to smooth the input
+  LinkedList<Float> humiditySmoothingFilter; // List which holds the last sizeSmoothingFilter number of humidity data points to smooth the input
 
   // Information on each data set
   int maxNumData; // Maximum number of data points
   int numDataMin = 0; // Number of data points
   int numDataHour = 0; // Number of data points
   int numDataDay = 0; // Number of data points
+  int numDataFilter = 0; // Number of data points in filter
+  int sizeSmoothingFilter = 5; // Number of data points to average over to smooth out the data
+  float tempErrorMin = 0; // The minimum temperature that can reasonably be expected (anything less will be considered an Arduino error)
+  float tempErrorMax = 120; // The maximum temperature that can reasonably be expected (anything more will be considered an Arduino error)
+  float humidityErrorMin = 0; // The minimum humidity that can reasonably be expected (anything less will be considered an Arduino error)
+  float humidityErrorMax = 100; // The maximum humidity that can reasonably be expected (anything more will be considered an Arduino error)
   float secPeriod; // Period between data points in seconds (used to calculate minPeriod, hourPeriod, and dayPeriod)
   float minPeriod; // Period between data points in minutes (used for data increment on plot, so it must be in the units of the x-axis)
   float hourPeriod; // Period between data points in hours (used for data increment on plot, so it must be in the units of the x-axis)
@@ -73,6 +84,10 @@ class birdBox {
   float firstTimeMin = 0; // The time value associated with the first data point in the min data
   float firstTimeHour = 0; // The time value associated with the first data point in the hour data
   float firstTimeDay = 0; // The time value associated with the first data point in the day data
+  Calendar minHourRelativeDate = getLastMidnight(); // The date that the minute/hour trace is relative to
+  long lastTimeInTimeDataMin = 0; // The timeDataMin.peek() result from the last time sendDataToTrace was called (used to shift minHourRelativeDate)
+  Calendar dayRelativeDate = getFirstOfMonthMidnight(); // The date that the day trace is relative to
+  long lastTimeInTimeDataDay = 0; // The timeDataDay.peek() result from the last time sendDataToTrace was called (used to shift dayRelativeDate)
   int plotTimeScale = MINUTES; // The current scale that the plot is using
   float tempMin; // Minimum allowable temperature
   float tempMax; // Maximum allowable temperature
@@ -155,8 +170,8 @@ class birdBox {
     // These parameters can be adjusted to change the shape of the display
     float plotWidthFrac = .25; // Center of plot as a fraction of the screen (will fill to the left side)
     float boxDiagramWidthFrac = .86; // Center of box diagram as a fraction of the screen (will fill to right side)
-    float numHours = 6; // Number of hours to see on hour plot
-    float numDays = 5; // Number of days to see on day plot
+    float numHours = 12; // Number of hours to see on hour plot
+    float numDays = 7; // Number of days to see on day plot
     numYTicks = 5; // Number of ticks to appear on the plots
     numXTicks = 10; // Number of ticks to appear on the plots
     float percentExtraYAxis = 20; // Percentage outside of allowable range to view the y-axis
@@ -361,6 +376,11 @@ class birdBox {
     humidityDataHour = new LinkedList<Float>(); // Data for humidity, hour scale
     tempDataDay = new LinkedList<Float>(); // Data for temperature, day scale
     humidityDataDay = new LinkedList<Float>(); // Data for humidity, day scale
+    timeDataMin = new LinkedList<Float>(); // Time points
+    timeDataHour = new LinkedList<Float>(); // Time points
+    timeDataDay = new LinkedList<Float>(); // Time points
+    tempSmoothingFilter = new LinkedList<Float>(); // Temperature smoothing
+    humiditySmoothingFilter = new LinkedList<Float>(); // Temperature smoothing
     maxNumData = plotWidth; // Set the number of data points to be equal to the number of pixels in the plot
     humidityToTempRatio = tempRange/humidityRange;
 
@@ -428,16 +448,16 @@ class birdBox {
   void setXLabel() {
     switch (plotTimeScale) {
     case MINUTES:
-      xLabelStr = "minutes";
+      xLabelStr = "minutes since midnight " + date.format(minHourRelativeDate.getTime());
       break;
     case HOURS:
-      xLabelStr = "hours";
+      xLabelStr = "hours since midnight " + date.format(minHourRelativeDate.getTime());
       break;
     case DAYS:
-      xLabelStr = "days";
+      xLabelStr = "days since midnight " + date.format(dayRelativeDate.getTime());
       break;
     default:
-      xLabelStr = "minutes";
+      xLabelStr = "minutes since midnight " + date.format(minHourRelativeDate.getTime());
       break;
     }
     graph.setXAxisLabel("Time (" + xLabelStr + ")");
@@ -466,11 +486,12 @@ class birdBox {
     badData = false;
   }
 
-  void setNewData(List<Float> newData, Calendar curTime) {
+  void setNewData(List<Float> data, Calendar curTime) {
     // Add graphable data to all data lists
+    List<Float> newData = addDataFilter(data);
     addDataMin(newData);
-    addDataHour(newData, curTime.getTimeInMillis());
-    addDataDay(newData, curTime.getTimeInMillis());
+    addDataHour(curTime.getTimeInMillis());
+    addDataDay(curTime.getTimeInMillis());
 
     // Set the state of the door
     switch (newData.get(2).intValue()) {
@@ -489,7 +510,7 @@ class birdBox {
     // Write data to file
     // If the data is real
     if (!badData) {
-      // Check the data to ensure that it is within acceptable boundaries
+      // Check the data to ensure that it is within acceptable experimental boundaries
       setNewStatus(newData);
 
       // Set the value labels
@@ -504,6 +525,53 @@ class birdBox {
       }
     }
   };
+
+  boolean tempDataIsError(float data) {
+    boolean dataIsErrored = false;
+    if (data == -1 || data < tempErrorMin || data > tempErrorMax) {
+      dataIsErrored = true;
+    }
+    return dataIsErrored;
+  }
+  
+  boolean humidityDataIsError(float data) {
+    boolean dataIsErrored = false;
+    if (data == -1 || data < humidityErrorMin || data > humidityErrorMax) {
+      dataIsErrored = true;
+    }
+    return dataIsErrored;
+  }
+
+  List<Float> addDataFilter(List<Float> data) {
+    // Filter the incoming data, or pass error data through
+    List<Float> newData;
+    if (!tempDataIsError(data.get(0)) && !humidityDataIsError(data.get(1))) {
+      // Add the new data to the smoothing filters
+      if (numDataFilter >= sizeSmoothingFilter) {
+        tempSmoothingFilter.remove();
+        humiditySmoothingFilter.remove();
+        numDataFilter--;
+      }
+      tempSmoothingFilter.add(data.get(0));
+      humiditySmoothingFilter.add(data.get(1));
+      numDataFilter++;
+
+      // Get the means of the smoothing filters, and construct a new "newData"
+      newData = new ArrayList<Float>();
+      newData.add(getMeanOfList(tempSmoothingFilter));
+      newData.add(getMeanOfList(humiditySmoothingFilter));
+
+      // Add in the remaining data points (starting at 2, because the first 2 have already been added)
+      for (int i = 2; i<data.size(); i++) {
+        newData.add(data.get(2));
+      }
+    } else {
+      // If there is a data error, pass the error through
+      newData = data;
+    }
+
+    return newData;
+  }
 
   void setValueLabels(List<Float> newData) {
     tempLabel.setValue(String.format("%.1f", newData.get(0)));
@@ -587,38 +655,49 @@ class birdBox {
   void sendDataToTrace() {
     LinkedList<Float> tempDataNew;
     LinkedList<Float> humidityDataNew;
+    LinkedList<Float> timeDataNew;
+    float xAxisWidth;
+
     float dataIncrement = minPeriod; // The amount of time between data points IN UNITS OF THE PLOT'S TIME SCALE (ex. minPeriod is time between data points in minutes, hourPeriod is time between data points in hours)
     switch (plotTimeScale) {
     case MINUTES:
       tempDataNew = tempDataMin;
       humidityDataNew = humidityDataMin;
+      timeDataNew = timeDataMin;
       dataIncrement = minPeriod;
-      xAxisMin = firstTimeMin;
-      xAxisMax = pixelsToMinutes(plotWidth) + xAxisMin;
+      xAxisWidth = pixelsToMinutes(plotWidth);
       break;
     case HOURS:
       tempDataNew = tempDataHour;
       humidityDataNew = humidityDataHour;
+      timeDataNew = timeDataHour;
       dataIncrement = hourPeriod;
-      xAxisMin = firstTimeHour;
-      xAxisMax = pixelsToHours(plotWidth) + xAxisMin;
+      xAxisWidth = pixelsToHours(plotWidth);
       break;
     case DAYS:
       tempDataNew = tempDataDay;
       humidityDataNew = humidityDataDay;
+      timeDataNew = timeDataDay;
       dataIncrement = dayPeriod;
-      xAxisMin = firstTimeDay;
-      xAxisMax = pixelsToDays(plotWidth) + xAxisMin;
+      xAxisWidth = pixelsToDays(plotWidth);
       break;
     default:
       tempDataNew = tempDataMin;
       humidityDataNew = humidityDataMin;
+      timeDataNew = timeDataMin;
+      dataIncrement = minPeriod;
+      xAxisWidth = pixelsToMinutes(plotWidth);
       break;
     }
 
+    // Adjust the x-axis (Will cause jump at midnight)
+    xAxisMin = timeDataNew.peek();
+    xAxisMax = xAxisWidth + xAxisMin;
     adjustXAxis(xAxisMin, xAxisMax);
 
     // Update the main trace objects
+    //tempTrace.setData(tempDataNew, timeDataNew);
+    //humidityTrace.setData(humidityToTemp(humidityDataNew), timeDataNew);
     tempTrace.setData(tempDataNew, xAxisMin, dataIncrement);
     humidityTrace.setData(humidityToTemp(humidityDataNew), xAxisMin, dataIncrement);
     warnTrace.setTime(xAxisMin);
@@ -634,11 +713,41 @@ class birdBox {
     humidityQuickTrace.generate();
   }
 
+  Calendar getLastMidnight() {
+    // Returns a calendar object set to last midnight
+    Calendar c = Calendar.getInstance();
+    c.set(Calendar.HOUR_OF_DAY, 0);
+    c.set(Calendar.MINUTE, 0);
+    c.set(Calendar.SECOND, 0);
+    c.set(Calendar.MILLISECOND, 0);
+
+    return c;
+  }
+
+  Calendar getFirstOfMonthMidnight() {
+    Calendar c = getLastMidnight();
+    c.set(Calendar.DAY_OF_MONTH, 1);
+    return c;
+  }
+
+  float millisToMins(long numMillis) {
+    return (float)numMillis/(float)millisPerMin;
+  }
+
+  float millisToHours(long numMillis) {
+    return (float)numMillis/(float)millisPerHour;
+  }
+
+  float millisToDays(long numMillis) {
+    return (float)numMillis/(float)millisPerDay;
+  }
+
   void addDataMin(List<Float> newData) {
     // Ensure that the queue is always the correct size
     if (numDataMin >= maxNumData) {
       tempDataMin.remove();
       humidityDataMin.remove();
+      timeDataMin.remove();
       numDataMin--;
       firstTimeMin += minPeriod; // Move the graph over one increment
     }
@@ -646,25 +755,35 @@ class birdBox {
     // Add graphable data
     tempDataMin.add(new Float(newData.get(0)));
     humidityDataMin.add(new Float(newData.get(1)));
+    timeDataMin.add(millisToMins(Calendar.getInstance().getTimeInMillis() - getLastMidnight().getTimeInMillis())); // Add the number of minutes since midnight
+
+    // Update the relative date
+    if (timeDataMin.peek() < lastTimeInTimeDataMin) {
+      minHourRelativeDate = getLastMidnight();
+    }
+    lastTimeInTimeDataMin = timeDataMin.peek().longValue();
 
     // Increment the number of data points
     numDataMin++;
   };
 
-  void addDataHour(List<Float> newData, long curTime) {
+  void addDataHour(long curTime) {
     // Add data if the required time has passed
     if (curTime >= ((lastHourUpdate + (long)hourPeriodInMillis)) || (lastHourUpdate == 0)) {
       // Ensure that the queue is always the correct size
       if (numDataHour >= maxNumData) {
         tempDataHour.remove();
         humidityDataHour.remove();
+        timeDataHour.remove();
         numDataHour--;
-        firstTimeHour += hourPeriod; // Move the  over one increment
+        firstTimeHour += hourPeriod; // Move the graph over one increment
       }
 
-      // Add graphable data
-      tempDataHour.add(new Float(newData.get(0)));
-      humidityDataHour.add(new Float(newData.get(1)));
+      // Add graphable data (add an average over the last hourPeriodInMillis milliseconds)
+      int minuteDataInd = min(numDataMin, (int)(hourPeriodInMillis/manager.fetchTime));
+      tempDataHour.add(getMeanOfList(tempDataMin.subList(0, minuteDataInd)));
+      humidityDataHour.add(getMeanOfList(humidityDataMin.subList(0, minuteDataInd)));
+      timeDataHour.add(millisToHours(Calendar.getInstance().getTimeInMillis() - getLastMidnight().getTimeInMillis())); // Add the number of hours since midnight
 
       // Record that update occurred
       lastHourUpdate = curTime;
@@ -674,20 +793,29 @@ class birdBox {
     }
   };
 
-  void addDataDay(List<Float> newData, long curTime) {
+  void addDataDay(long curTime) {
     // Add data if the required time has passed
     if (curTime >= (lastDayUpdate + (long)dayPeriodInMillis) || (lastDayUpdate == 0)) {
       // Ensure that the queue is always the correct size
       if (numDataDay >= maxNumData) {
         tempDataDay.remove();
         humidityDataDay.remove();
+        timeDataDay.remove();
         numDataDay--;
         firstTimeDay += dayPeriod; // Move the graph over one increment
       }
 
-      // Add graphable data
-      tempDataDay.add(new Float(newData.get(0)));
-      humidityDataDay.add(new Float(newData.get(1)));
+      // Add graphable data (add an average over the last dayPeriodInMillis milliseconds)
+      int minuteDataInd = min(numDataMin, (int)(dayPeriodInMillis/manager.fetchTime));
+      tempDataDay.add(getMeanOfList(tempDataMin.subList(0, minuteDataInd)));
+      humidityDataDay.add(getMeanOfList(humidityDataMin.subList(0, minuteDataInd)));
+      timeDataDay.add(millisToDays(Calendar.getInstance().getTimeInMillis() - getFirstOfMonthMidnight().getTimeInMillis())); // Add the number of days since midnight of the first of the month
+
+      // Update the relative date
+      if (timeDataDay.peek() < lastTimeInTimeDataDay) {
+        minHourRelativeDate = getFirstOfMonthMidnight();
+      }
+      lastTimeInTimeDataDay = timeDataDay.peek().longValue();
 
       // Record that update occurred
       lastDayUpdate = curTime;
@@ -696,6 +824,18 @@ class birdBox {
       numDataDay++;
     }
   };
+
+  float getMeanOfList(List<Float> list) {
+    float sum = 0; // Running sum
+    for (Float curVal : list) {
+      if (curVal != -1) {
+        // This function is expecting lists that use "-1" as an error value, so ignore those
+        sum += curVal; // Add the current value from the list to the running sum
+      }
+    }
+    float mean = sum/list.size();
+    return mean;
+  }
 
   float pixelsToMinutes(float numPixels) {
     // Convert a width (in pixels) to the number of minutes
@@ -742,10 +882,14 @@ class birdBox {
 
   color doorStatusColor() {
     color c;
-    if (!this.doorClosed) {
-      c = YELLOW;
+    if (birdInBox) {
+      if (!this.doorClosed) {
+        c = YELLOW;
+      } else {
+        c = GREEN;
+      }
     } else {
-      c = GREEN;
+      c = g.backgroundColor;
     }
     return c;
   }
@@ -972,8 +1116,8 @@ class birdBox {
   }
 
   void setupEmailIfNeeded() {
-    if (!flagIsClear(status)) {
-      // If there are some warnings, build up a message to send to the Emailer
+    if (!flagIsClear(status) && birdInBox) {
+      // If there are some warnings, and a bird is in the box, build up a message to send to the Emailer
       if (lastStatus != status) {
         // If a new warning has occurred, rebuild the message
         // Otherwise, just send the same message as last time (don't change curMessage)
@@ -999,7 +1143,7 @@ class birdBox {
           curWarningMessage += "Door has been open for too long" + nL;
         }
       }
-      
+
       emailDebug("Warning exists, notifying Emailer about: " + curWarningMessage);
     }
 

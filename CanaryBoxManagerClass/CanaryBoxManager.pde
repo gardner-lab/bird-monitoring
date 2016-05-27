@@ -12,7 +12,6 @@ import org.gwoptics.graphics.graph2D.traces.*;
 import org.gwoptics.graphics.graph3D.*;
 import org.gwoptics.graphicsutils.*;
 import org.gwoptics.mathutils.*;
-import org.gwoptics.testing.*;
 
 //GUI libraries
 import controlP5.*;
@@ -59,6 +58,7 @@ final static int minPerHour = 60; // Modify if number of minutes per hour change
 final static int hourPerDay = 24; // Modify if number of hours per day changes (23.9 hours [exact number of hours per day]~24 hours, so bite me)
 final static int millisPerMin = millisPerSec*secPerMin; 
 final static int millisPerHour = millisPerMin*minPerHour;
+final static int millisPerDay = millisPerHour*hourPerDay;
 
 final color GREEN = color(0, 150, 0);
 final color YELLOW = color(250, 250, 0);
@@ -69,6 +69,7 @@ final color BLUE = color(0, 0, 250);
 birdBoxManager manager;
 int numTrackedParameters = 3; // Number of parameters tracked by the Arduino (currently 3: temp, humidity, and door closing)
 SimpleDateFormat sdf = new SimpleDateFormat("kk:mm:ss"); // This is the format for time in the output files
+SimpleDateFormat date = new SimpleDateFormat("MM/dd/yy"); // This is the format for dates in the x-axis of the plot
 
 // Set debug booleans
 boolean doSerialDebug = false;
@@ -77,7 +78,7 @@ boolean doRawDataDebug = false;
 boolean doPlotDebug = false;
 boolean doIODebug = false;
 boolean doDoorDebug = false;
-boolean doEmailDebug = true;
+boolean doEmailDebug = false;
 boolean doErrorReporting = true;
 boolean fakeArduinoTest = false; // (TO-DO: finish implementing this debug tool!) If no Arduino is connected, have the Processing software immitate having one connected (sending data through)
 

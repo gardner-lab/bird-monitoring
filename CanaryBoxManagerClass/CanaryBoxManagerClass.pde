@@ -104,10 +104,23 @@ class birdBoxManager {
     // Get first measurement from arduino
     getNewData();
   }
+  
+  boolean birdInAnyBox() {
+   // This function queries all of the boxes being managed to determine if there is a bird in any of the boxes
+   boolean birdInBoxes = false;
+   for (int i = 0;i < numBoxes;i++) {
+     if (boxArray[i].birdInBox) {
+      birdInBoxes = true;
+      break;
+     }
+   }
+   return birdInBoxes;
+  }
 
   void setupEmailIfNeeded() {
-    if (!flagIsClear(serialStatus)) {
-      // If there are some warnings, build up a message to send to the Emailer
+    boolean warning = !flagIsClear(serialStatus) && birdInAnyBox(); // If there is a problem, and there is a bird in the box
+    if (warning) {
+      // If there are some warnings, and there is at least one bird in the boxes, build up a message to send to the Emailer
       if (lastSerialStatus != serialStatus) {
         // If a new warning has occurred, rebuild the message
         // Otherwise, just send the same message as last time (don't change curMessage)
@@ -128,7 +141,7 @@ class birdBoxManager {
     }
 
     // Send the message to the Emailer
-    emailer.checkIfEmailIsNeeded(!flagIsClear(serialStatus), curWarningMessage);
+    emailer.checkIfEmailIsNeeded(warning, curWarningMessage);
 
     // Keep track of how the status flag changes
     lastSerialStatus = serialStatus;
@@ -215,7 +228,7 @@ class birdBoxManager {
   String getWarningBoxString() {
     String s;
     if (flagIsClear(serialStatus)) {
-      s = "Connection Functional";
+      s = "Connected";
     } else if (testFlag(serialStatus, DISCONNECTED)) {
       s = "Disconnected";
     } else {
