@@ -399,7 +399,7 @@ class birdBox {
     // Intialize the headers for the file writer
     String[] allHeaders = {"Time (hour:minute:second)", "Temperature (F)", "Humidity (%RH)", "Door Closed"};
     headers = allHeaders; // Because array constaints can't be used outside of initializers ("Hi, I'm Java, and I'm an annoying jerk who won't let you do things easily! :P")
-    writerDirectory = mainDirectory + "data/";
+    writerDirectory = mainDirectory + "data" + sep;
   }
 
   void createFileWriter() {

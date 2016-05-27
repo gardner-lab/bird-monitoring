@@ -1,4 +1,4 @@
-// Graphing libraries //<>// //<>//
+// Graphing libraries //<>// //<>// //<>//
 import org.gwoptics.*;
 import org.gwoptics.gaussbeams.*;
 import org.gwoptics.graphics.*;
@@ -65,6 +65,9 @@ final color YELLOW = color(250, 250, 0);
 final color RED = color(250, 0, 0);
 final color BLUE = color(0, 0, 250);
 
+final int WINDOWS = 0;
+final int MAC = 1;
+
 // Set global objects
 birdBoxManager manager;
 int numTrackedParameters = 3; // Number of parameters tracked by the Arduino (currently 3: temp, humidity, and door closing)
@@ -78,19 +81,37 @@ boolean doRawDataDebug = false;
 boolean doPlotDebug = false;
 boolean doIODebug = false;
 boolean doDoorDebug = false;
-boolean doEmailDebug = false;
+boolean doEmailDebug = true;
 boolean doErrorReporting = true;
 boolean fakeArduinoTest = false; // (TO-DO: finish implementing this debug tool!) If no Arduino is connected, have the Processing software immitate having one connected (sending data through)
 
-// Directory in which the program will be based (used for file input/output)
-String mainDirectory = "/Users/sambrown/Documents/Classes/Gardner Rotation/bird-monitoring/";
+// Directory in which the program will be based (used for file input/output), and information on the operating system
+String mainDirectory; // The main directory of the program
+String sep = File.separator; // The character that separates directories
+int currentOS; // The current operating system
 
 void setup() {
   // Set parameters
   int fetchTime = 2000; // Number of milliseconds to wait before getting new data
   int baudRate = 57600; // Baudrate for the serial connection
-  String arduinoPortName = "/dev/cu.usbserial-A700flOS";
-  
+  String arduinoPortName;
+
+  // Determine which operating system is being used
+  if (System.getProperty("os.name").startsWith("Windows")) {
+    currentOS = WINDOWS;
+  } else {
+    currentOS = MAC;
+  }
+
+  // Set the main directory
+  if (currentOS == WINDOWS) {
+    mainDirectory = "C:"+sep+"Users"+sep+"Nathan"+sep+"Documents"+sep+"bird_monitoring"+sep;
+    arduinoPortName = "COM4";
+  } else {
+    mainDirectory = sep+"Users"+sep+"sambrown"+sep+"Documents"+sep+"Classes"+sep+"Gardner Rotation"+sep+"bird-monitoring"+sep;
+    arduinoPortName = "/dev/cu.usbserial-A700flOS";
+  }
+
   // Check if the main directory exists (if not, use the standard user pathway)
   if (!(new File(mainDirectory).exists())) {
     // Set the main path to be the user's main directory

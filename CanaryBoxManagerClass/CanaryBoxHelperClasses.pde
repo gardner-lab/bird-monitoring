@@ -59,7 +59,7 @@ class Emailer {
           String[] columns = str.split(","); // Split on commas, because it is a csv
 
           // After the split, make sure that there is content in this row (end of file may not have been reached, but the rest of the table may be blank)
-          if (columns.length == 0) {
+          if (columns.length <= identifierCol) {
             break;
           }
 
