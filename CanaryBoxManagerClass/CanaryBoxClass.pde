@@ -44,6 +44,7 @@ class birdBox {
 
   // Object for writing a file
   csvWriter fileWriter; // Writer to send data to file
+  String writerDirectory; // Directory (sub-directory of mainDirectory) in which the data will be written
   String[] headers; // Headers for the file
   boolean writerInitialized = false; // Has a writer been created yet? (Cannot create at construction, because birdName has not been initialized)
 
@@ -398,13 +399,14 @@ class birdBox {
     // Intialize the headers for the file writer
     String[] allHeaders = {"Time (hour:minute:second)", "Temperature (F)", "Humidity (%RH)", "Door Closed"};
     headers = allHeaders; // Because array constaints can't be used outside of initializers ("Hi, I'm Java, and I'm an annoying jerk who won't let you do things easily! :P")
+    writerDirectory = mainDirectory + "data/";
   }
 
   void createFileWriter() {
     if (!writerInitialized) {
       ioDebug("Creating File Writer");
-      ioDebug("Current directory: " + System.getProperty("user.dir"));
-      fileWriter = new csvWriter(System.getProperty("user.dir"), birdName, headers, manager.fManager);
+      ioDebug("Current directory: " + writerDirectory);
+      fileWriter = new csvWriter(writerDirectory, birdName, headers, manager.fManager);
       ioDebug("File Writer created");
       writerInitialized = true;
     }

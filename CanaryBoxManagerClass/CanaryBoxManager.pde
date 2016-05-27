@@ -1,4 +1,4 @@
-// Graphing libraries //<>//
+// Graphing libraries //<>// //<>//
 import org.gwoptics.*;
 import org.gwoptics.gaussbeams.*;
 import org.gwoptics.graphics.*;
@@ -81,6 +81,9 @@ boolean doDoorDebug = false;
 boolean doEmailDebug = false;
 boolean doErrorReporting = true;
 boolean fakeArduinoTest = false; // (TO-DO: finish implementing this debug tool!) If no Arduino is connected, have the Processing software immitate having one connected (sending data through)
+
+// Directory in which the program will be based (used for file input/output)
+String mainDirectory = "/Users/sambrown/Documents/Classes/Gardner Rotation/bird-monitoring/";
 
 void setup() {
   // Set parameters
