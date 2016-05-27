@@ -1,6 +1,6 @@
 // To-Do:
 #define aRefVoltage 3.41 // Reference voltage tied to 3.3V, multimeter found exact voltage (may want to check again)
-
+#define TEMPCCAL 2.5 // The calibration temperature in celcius (compared to the DM6802B Digital Thermometer, measured at digitial thermometer = 22˚C)
 // Parameters
 int numBoxes = 3;
 static int bytesPerFloat = 4;
@@ -16,7 +16,7 @@ void setup() {
   analogReference(EXTERNAL);
 
   // Set digital pins
-  pinMode(2,INPUT);
+  pinMode(2, INPUT);
 }
 
 void loop() {
@@ -84,8 +84,9 @@ void sendNewData() {
       Serial.write(humidity.byteVal, bytesPerFloat);
       Serial.write(door.byteVal, bytesPerFloat);
     } else {
-      temp.floatVal = getTempVal(i);
-      humidity.floatVal = getHumidityVal(i, temp.floatVal);
+      float tempC = getTempCVal(i);
+      temp.floatVal = getTempFVal(tempC);
+      humidity.floatVal = getHumidityVal(i, tempC);
       door.floatVal = getDoorVal(i);
 
       Serial.write(temp.byteVal, bytesPerFloat);
@@ -98,25 +99,29 @@ void sendNewData() {
   Serial.write(LF);
 }
 
-float getTempVal(int boxNum) {
+float getTempCVal(int boxNum) {
   float raw = analogRead(trackedParameters * boxNum);
   float rawVolts = raw * (aRefVoltage / 1023.0);
-  float tempC = (rawVolts - .5) * 100;
-  float tempF = tempC * (9 / 5) + 32;
+  float tempC = (rawVolts - .5) * 100 + TEMPCCAL;
+  return tempC;
+}
+
+float getTempFVal(int tempC) {
+  float tempF = tempC * (9.0 / 5.0) + 32.0;
   return tempF;
 }
 
-float getHumidityVal(int boxNum, float temp) {
+float getHumidityVal(int boxNum, float tempC) {
   float raw = analogRead(trackedParameters * boxNum + 1);
   float rawVolts = raw * (aRefVoltage / 1023.0);
   float sensorRH = ((rawVolts / aRefVoltage) - .1515) / .00636;
-  float trueRH = sensorRH / (1.0546 - .00216 * temp);
+  float trueRH = sensorRH / (1.0546 - .00216 * tempC);
   return trueRH;
 }
 
 float getDoorVal(int boxNum) {
   float doorClosed;
-  int val = digitalRead(2);
+  int val = digitalRead(2 + boxNum);
   if (val == HIGH) {
     doorClosed = 1;
   } else {
