@@ -17,12 +17,13 @@ class birdBox {
   Emailer emailer; // The oject responsible for emailing users if anything goes wrong
   String curWarningMessage = ""; // The current message that the Emailer has
   int lastStatus = status; // The status as it was the last time the Emailer was contacted (used to see if the message should be changed)
-  float minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
+  float minutesToWaitBeforeEmailing = 0;//10; // The number of minutes to wait before sending an email warning
 
   // Parameters for keeping track of door-related warnings
   // Social time will be tracked by using two Lists.  The first is a List of Booleans, which store the raw data of when the door is open.  Every checkDoorPeriod minutes, this list will be summed and stored into the second List (of Integers), to keep a low-resolution memory of when the door was open
   float doorTimePeriodHrs = 24; // Hours
   float socialTimeRequiredHrs = 1; // Hours
+  boolean readyToCheckSocial = false; // If doorTimePeriodHrs has passed since the beginning of the program (allowed to start checking for social time)
   float doorOpenUpperLimitHrs = 12; // Hours
   float checkDoorPeriodMin = 10; // Minutes - Period between checking the amount of social time
   long doorTimePeriod; // Same as above, but will be converted into milliseconds
@@ -112,6 +113,12 @@ class birdBox {
   int boxDiagramWidth;
   int textWidth;
   int textHeight;
+
+  // Door warning label
+  int doorWarningX;
+  int doorWarningY;
+  int doorWarningHeight;
+  int doorWarningWidth;
 
   // Plot Diagram
   int plotX;
@@ -215,6 +222,16 @@ class birdBox {
     boxDiagramY = boxYIn;
     boxDiagramHeight = allHeight;
     boxDiagramWidth = (int)((1 - boxDiagramWidthFrac)*2*allWidth); // (1 - boxDiagramWidthFrac)*allWidth gives "radius" of rectangle
+
+    // Door warning Label for box diagram
+    doorWarningX = boxDiagramX;
+    doorWarningY = boxDiagramY + 30;
+    doorWarningHeight = 20;
+    doorWarningWidth = (int)(boxDiagramWidth*.65);
+    println("X: " + doorWarningX);
+    println("Y: " + doorWarningY);
+    println("Width: " + doorWarningWidth);
+    println("Height: " + doorWarningHeight);
 
     // Text for box diagram
     textWidth = 150;
@@ -649,16 +666,16 @@ class birdBox {
     }
   }
 
-  int updateStatus(int bField, int status, boolean warningOn) {
+  int updateStatus(int bField, int statusIn, boolean warningOn) {
     // This function will set the status flag in the bit-field bField according to whether or not warningOn is true
     // I.e. if warningOn is true, the status flag in bField will be set, otherwise it will be cleared
     // Example usage: status = updateStatus(status, SOMETHINGISWRONG, isSomethingWrong);
     // If isSomethingWrong is true, then the SOMETHINGISWRONG flag will be set in status
     int bFieldOut = bField;
     if (warningOn) {
-      bFieldOut = setStatus(bField, status);
+      bFieldOut = setStatus(bField, statusIn);
     } else {
-      bFieldOut = clearStatus(bField, status);
+      bFieldOut = clearStatus(bField, statusIn);
     }
     return bFieldOut;
   }
@@ -864,13 +881,13 @@ class birdBox {
   }
 
   void setName(String birdNameIn) {
-    String lastBirdName = birdName; // Store the current name
+    //String lastBirdName = birdName; // Store the current name
     birdName = birdNameIn; // Update the current name
     if (!birdName.equals("")) {
       // If the new bird's name is not blank
       //if (!birdName.equals(lastBirdName)) {
-        // If the bird's name is new
-        birdInBoxStart();
+      // If the bird's name is new
+      birdInBoxStart();
       //}
     } else {
       birdInBoxEnd();
@@ -944,14 +961,14 @@ class birdBox {
         doorDebug("Door-related status");
       }
 
-      // Transfer data from currentDoorData over to allDoorData if a)checkDoorPeriod amount of time has passed, or b) there is a door problem and the fetchTime period has passed (increase resolution when it is expected that the door problem will be resolved soon 
+      // Transfer data from currentDoorData over to allDoorData if a)checkDoorPeriod amount of time has passed, or b) there is a door problem and the fetchTime period has passed (increase resolution when it is expected that the door problem will be resolved soon) 
       long periodOpenTime = queueSumFalseDestroy(currentDoorData)*manager.fetchTime; // The amount of time that the door has been open over the last period
       doorDebug("Door open for " + periodOpenTime + "ms over last " + (curTimeMillis - lastDoorCheck) + "ms");
 
       doorDebug("Now adding data to allDoorData");
       // Add the cumulative sum of false's (door being open) to the allDoorData, multiplied by the fetching period (stores the number of milliseconds that the door was open over the last checkDoorPeriod)
       allDoorData.add(periodOpenTime);
-      allDoorDataTimePeriods.add(curTimeMillis - lastDoorAddData); // The amount of time that this most recent data represents
+      allDoorDataTimePeriods.add(curTimeMillis - lastDoorAddData); // The amount of time that this most recent data represents (each entry in allDoorData may represent information from a different amount of time, because door warnings are checked every fetchTime if there is a door-related status)
       lastDoorAddData = curTimeMillis;
 
       // Check if the door has been open for too long consecutively (this method has relatively low granularity, but is meant to be used when doorOpenUpperLimit is much larger than checkDoorPeriod)
@@ -971,21 +988,27 @@ class birdBox {
 
       // Check how much time allDoorData represents (used only in the beginning, when the allDoorData buffer is still filling)
       long totalTimeInAllDoorData = curTimeMillis - timeAllDoorDataStarted;
-      doorDebug("Time represented in allDoorData: " + totalTimeInAllDoorData + " (" + (float)(totalTimeInAllDoorData/millisPerHour) + " hours)");
-      if (totalTimeInAllDoorData > doorTimePeriod) {
+      while (totalTimeInAllDoorData > doorTimePeriod) {
+        doorDebug("Time represented in allDoorData: " + totalTimeInAllDoorData + " (" + (float)(totalTimeInAllDoorData/millisPerHour) + " hours)");
         // If more than doorTimePeriod has passed (if it's been more than 24 hours)
 
-        // Remove the olded data point from allDoorData
+        // May now start checking social data
+        readyToCheckSocial = true;
+
+        // Remove the oldest data point from allDoorData
         allDoorData.remove(); // Remove the oldest value
         timeAllDoorDataStarted += allDoorDataTimePeriods.remove(); // Move the timeAllDoorDataStarted forward by the period of time that the allDoorData time that was just removed represented
-        doorDebug("allDoorData now represents the past " + (float)((totalTimeInAllDoorData)/millisPerHour) + " hours"); 
+        totalTimeInAllDoorData = curTimeMillis - timeAllDoorDataStarted;
+      }
+      doorDebug("allDoorData now represents the past " + (float)((totalTimeInAllDoorData)/millisPerHour) + " hours"); 
 
+      if (readyToCheckSocial) {
         // Get the total amount of time that the door was open
         long totalOpenTime = queueSum(allDoorData); // Sum all of the values in allDoorData, which represents the number of ms that the door was open in each epoch (with each element of the array representing one epoch)
-        doorDebug("Door open for " + totalOpenTime + "ms (" + (float)totalOpenTime/millisPerHour + " hours) over last " + doorTimePeriodHrs + " hours");
+        doorDebug("Door open for " + totalOpenTime + "ms (" + (float)totalOpenTime/millisPerHour + " hours) over last " + totalTimeInAllDoorData/millisPerHour + " hours");
 
         // Check for social time (only if a full doorTimePeriod has passed, otherwise the social alarm would go off immediately)
-        doorDebug("DoorTimePeriod (" + (float)(doorTimePeriod/millisPerHour) + " hours) has passed since program start, checking social time");
+        // doorDebug("DoorTimePeriod (" + (float)(doorTimePeriod/millisPerHour) + " hours) has passed since program start, checking social time");
         if (totalOpenTime <  socialTimeRequired) {
           // If the the door has not been open enough
           if (doorClosed) {
@@ -997,6 +1020,7 @@ class birdBox {
             doorDebug("Total time open is less than required social time (" + (float)socialTimeRequired/millisPerHour + " hours), but door is open.  Waiting.");
           }
         } else {
+          // If the door has been open enough over the last doorPeriod
           clearStatus(status, SOCIALNEEDED);
         }
       }
@@ -1067,7 +1091,7 @@ class birdBox {
     return runSum;
   }
 
-  void drawBoxDiagram() {
+  void drawBoxDiagram() {    
     // Outer box
     rectMode(CENTER);
     stroke(0);
@@ -1088,6 +1112,23 @@ class birdBox {
     fill(doorStatusColor());
     rect(boxDiagramX, boxDiagramY, boxDiagramWidth - doorBufferWidth*2, boxDiagramHeight - doorBufferHeight*2);
     stroke(0);
+
+    // Door-related warning string
+    textSize(15);
+    textAlign(CENTER);
+    fill(blink(0));
+    text(getDoorWarningString(), doorWarningX, doorWarningY, doorWarningWidth, doorWarningHeight);
+  }
+
+  String getDoorWarningString() {
+    String s = "";
+    if (testFlag(status, SOCIALNEEDED)) {
+      s = "Social time needed";
+    } else if (testFlag(status, DOOROPENTOOLONG)) {
+      s = "Door open too long";
+    }
+
+    return s;
   }
 
   void drawPlot() {    

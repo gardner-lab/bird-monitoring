@@ -17,7 +17,7 @@ class Emailer {
   private String host = "smtp.gmail.com"; // Use the gmail smtp server
   private Properties properties; // Hey, this is private properties!
   private Session session;
-  
+
   Emailer(String infoFileName, String birdNameIn, float minutesBeforeEmailIn, String emailIdentifierIn) {
     // infoFileName is the path and name of the file that contains information on who to contact
     // birdNameIn is the identifying word/code that corresponds to the correct emails in the file (i.e. "bird1" may correspond to the emails "someone@gmail.com" and "someone-else@gmail.com")
@@ -132,14 +132,14 @@ class Emailer {
         emailDebug("InternetAddress error: " + e.getMessage());
       }
     }
-    
+
     // Catch errors on the number of emails
     if (numberOfEmailAddresses < 1) {
-     errorReporting("No email addresses found for " + emailIdentifier);
+      errorReporting("No email addresses found for " + emailIdentifier);
     } else {
       emailDebug(numberOfEmailAddresses + " addresses found for " + birdName + ":");
-      for (int i = 0;i<numberOfEmailAddresses;i++) {
-       emailDebug(emailAddresses[i].toString());
+      for (int i = 0; i<numberOfEmailAddresses; i++) {
+        emailDebug(emailAddresses[i].toString());
       }
       emailDebug("");
     }
@@ -150,64 +150,77 @@ class Emailer {
     properties.setProperty("mail.smtp.user", username); // Set the username
     properties.setProperty("mail.smtp.password", password); // Set the password
     properties.setProperty("mail.smtp.auth", "true"); // Use authentication
-    properties.put("mail.smtp.port", "587"); 
+    //properties.put("mail.smtp.port", "465");//"587"); 
     properties.put("mail.smtp.starttls.enable", "true"); 
+
+    // New code (for changing to port 465
+    properties.put("mail.smtp.port", "465"); 
+    properties.put("mail.smtp.socketFactory.port", 465);
+    properties.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+    properties.put("mail.smtp.socketFactory.fallback", "false");
+
     session = Session.getInstance(properties, new javax.mail.Authenticator() {
       protected PasswordAuthentication getPasswordAuthentication() {
         return new PasswordAuthentication(
-          username, password);// Specify the Username and the PassWord
+          username, password);// Specify the Username and the Password
       }
-    }); // Get the Session object
+    }
+    ); // Get the Session object
+    
+    session.setDebug(doEmailDebug);
 
     // Intialize the parameters needed for countdown
     millisBeforeEmail = (long)(minutesBeforeEmail*millisPerMin); // Calculate the number of milliseconds to wait before sending out an email
   }
-  
+
   Emailer(String infoFileName, String birdNameIn, float minutesBeforeEmailIn) {
     this(infoFileName, birdNameIn, minutesBeforeEmailIn, birdNameIn);
   }
-  
+
 
   void checkIfEmailIsNeeded(boolean warningStimulus, String message) {
     // If enough time has passed since any warning has been active, without all warnings going silent, then send out an email detailing the current warnings
     // warningStimulus is a boolean that represents something going wrong.  If it is true, Emailer will start the process of sending an email warning (or wait for the warning stimulus to end, if an email has already been sent)
     // message is a String that contains the key text in an email that will be sent
 
-    // First, check the status flag for any warnings
-    if (warningStimulus) {
-      long curTimeInMillis = Calendar.getInstance().getTimeInMillis(); // Get the current time
+    // If there are any email addresses to send to
+    if (haveEmailAddresses) {
+      // First, check the status flag for any warnings
+      if (warningStimulus) {
+        long curTimeInMillis = Calendar.getInstance().getTimeInMillis(); // Get the current time
 
-      // If there is a warning, check if it is a new warning
-      if (!reactingToWarning) {
-        // If this is a new warning, start the email countdown period
-        emailDebug("Received new warning.  Starting email countdown.");
-        timeWarningStarted = curTimeInMillis; // Record the current time
-        reactingToWarning = true; // Change the state to the countdown period
-      } else {
-        // If this is an old warning, check if an email has already been sent
-        if (!emailSent) {
-          // If an email has been sent, do nothing.
-          // If no email has been sent, then check if the countdown has finished
-          emailDebug((float)(timeWarningStarted + millisBeforeEmail - curTimeInMillis)/1000 + " seconds before sending email");
-          if (curTimeInMillis > (timeWarningStarted + millisBeforeEmail)) {
-            // If the countdown has just expired, then send out an email
-            sendEmail(message);
-            emailSent = true;
+        // If there is a warning, check if it is a new warning
+        if (!reactingToWarning) {
+          // If this is a new warning, start the email countdown period
+          emailDebug("Received new warning.  Starting email countdown.");
+          timeWarningStarted = curTimeInMillis; // Record the current time
+          reactingToWarning = true; // Change the state to the countdown period
+        } else {
+          // If this is an old warning, check if an email has already been sent
+          if (!emailSent) {
+            // If an email has been sent, do nothing.
+            // If no email has been sent, then check if the countdown has finished
+            emailDebug((float)(timeWarningStarted + millisBeforeEmail - curTimeInMillis)/1000 + " seconds before sending email");
+            if (curTimeInMillis > (timeWarningStarted + millisBeforeEmail)) {
+              // If the countdown has just expired, then send out an email
+              sendEmail(message);
+              emailSent = true;
+            }
           }
         }
-      }
-    } else {
-      // If there are no warnings, update the user if necessary, and then reset the email warning system
-      // Check if an email was sent because of a previous warning
-      if (emailSent) {
-        emailDebug("Warning turned off.  Sending update email.");
-        // If an email was sent, send an update to the user, letting them know that the situation has resolved
-        sendEmail();
-      }
+      } else {
+        // If there are no warnings, update the user if necessary, and then reset the email warning system
+        // Check if an email was sent because of a previous warning
+        if (emailSent) {
+          emailDebug("Warning turned off.  Sending update email.");
+          // If an email was sent, send an update to the user, letting them know that the situation has resolved
+          sendEmail();
+        }
 
-      // Clear all varaibles related to sending an email warning
-      reactingToWarning = false;
-      emailSent = false;
+        // Clear all varaibles related to sending an email warning
+        reactingToWarning = false;
+        emailSent = false;
+      }
     }
   }
 

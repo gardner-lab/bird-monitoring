@@ -187,7 +187,6 @@ boolean testFlag(int bField, int testStatus) {
 
 boolean flagIsClear(int bField) {
   // Test the input flag to determine if it is clear
-  // Multiple flags can be cleared at once with "flag1 | flag2"
   return bField == 0;
 }
 

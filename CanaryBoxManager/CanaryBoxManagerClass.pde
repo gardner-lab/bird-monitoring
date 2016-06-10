@@ -98,23 +98,23 @@ class birdBoxManager {
 
     // Set up the Emailer
     emailAddressesFileName = mainDirectory + "birdBoxEmailAddresses.csv"; 
-    float minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
+    float minutesToWaitBeforeEmailing = 0; // The number of minutes to wait before sending an email warning
     emailer = new Emailer(emailAddressesFileName, "", minutesToWaitBeforeEmailing, "Arduino connection"); // The second field is blank so that the Emailer extracts ALL email addresses from the file
 
     // Get first measurement from arduino
     getNewData();
   }
-  
+
   boolean birdInAnyBox() {
-   // This function queries all of the boxes being managed to determine if there is a bird in any of the boxes
-   boolean birdInBoxes = false;
-   for (int i = 0;i < numBoxes;i++) {
-     if (boxArray[i].birdInBox) {
-      birdInBoxes = true;
-      break;
-     }
-   }
-   return birdInBoxes;
+    // This function queries all of the boxes being managed to determine if there is a bird in any of the boxes
+    boolean birdInBoxes = false;
+    for (int i = 0; i < numBoxes; i++) {
+      if (boxArray[i].birdInBox) {
+        birdInBoxes = true;
+        break;
+      }
+    }
+    return birdInBoxes;
   }
 
   void setupEmailIfNeeded() {
@@ -138,13 +138,13 @@ class birdBoxManager {
         }
       }
       emailDebug("Warning exists, notifying Emailer about: " + curWarningMessage);
+
+      // Keep track of how the status flag changes
+      lastSerialStatus = serialStatus;
     }
 
     // Send the message to the Emailer
     emailer.checkIfEmailIsNeeded(warning, curWarningMessage);
-
-    // Keep track of how the status flag changes
-    lastSerialStatus = serialStatus;
   }
 
   void draw() {
