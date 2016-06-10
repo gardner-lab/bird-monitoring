@@ -17,7 +17,7 @@ class birdBox {
   Emailer emailer; // The oject responsible for emailing users if anything goes wrong
   String curWarningMessage = ""; // The current message that the Emailer has
   int lastStatus = status; // The status as it was the last time the Emailer was contacted (used to see if the message should be changed)
-  float minutesToWaitBeforeEmailing = 0;//10; // The number of minutes to wait before sending an email warning
+  float minutesToWaitBeforeEmailing = 10; // The number of minutes to wait before sending an email warning
 
   // Parameters for keeping track of door-related warnings
   // Social time will be tracked by using two Lists.  The first is a List of Booleans, which store the raw data of when the door is open.  Every checkDoorPeriod minutes, this list will be summed and stored into the second List (of Integers), to keep a low-resolution memory of when the door was open
