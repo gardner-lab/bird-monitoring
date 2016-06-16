@@ -1,4 +1,4 @@
-// Graphing libraries //<>// //<>// //<>//
+// Graphing libraries //<>//
 import org.gwoptics.*;
 import org.gwoptics.gaussbeams.*;
 import org.gwoptics.graphics.*;
@@ -81,7 +81,7 @@ boolean doRawDataDebug = false;
 boolean doPlotDebug = false;
 boolean doIODebug = false;
 boolean doDoorDebug = false;
-boolean doEmailDebug = true;
+boolean doEmailDebug = false;
 boolean doErrorReporting = true;
 boolean fakeArduinoTest = false; // (TO-DO: finish implementing this debug tool!) If no Arduino is connected, have the Processing software immitate having one connected (sending data through)
 

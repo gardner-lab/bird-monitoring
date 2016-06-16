@@ -228,10 +228,6 @@ class birdBox {
     doorWarningY = boxDiagramY + 30;
     doorWarningHeight = 20;
     doorWarningWidth = (int)(boxDiagramWidth*.65);
-    println("X: " + doorWarningX);
-    println("Y: " + doorWarningY);
-    println("Width: " + doorWarningWidth);
-    println("Height: " + doorWarningHeight);
 
     // Text for box diagram
     textWidth = 150;

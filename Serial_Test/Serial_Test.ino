@@ -5,6 +5,7 @@
 int numBoxes = 3;
 static int bytesPerFloat = 4;
 static int trackedParameters = 3; // Number of parameters that are being sent per box
+static int analogTrackedParameters = 2; // Number of analog parameters tracked per box
 static int LF = 10; // Line-feed in ASCII
 
 void setup() {
@@ -16,7 +17,10 @@ void setup() {
   analogReference(EXTERNAL);
 
   // Set digital pins
-  pinMode(2, INPUT);
+  int startDigiPin = 2; // The pin number to start on
+  for (int i = startDigiPin; i < (2 + numBoxes); i++) {
+    pinMode(i, INPUT);
+  }
 }
 
 void loop() {
@@ -63,36 +67,36 @@ void sendNewData() {
 
   // Then, for each box, send the necesary information
   for (int i = 0; i < numBoxes; i++) {
-    if (i != 0) {
-      // Acquire data from the analog sensors
-      float inputTempVoltage = 71;
-      float inputHumidityVoltage = 60;
-      float inputDoorVoltage = 1;
+    //    if (i != 0) {
+    //      // Acquire data from the analog sensors
+    //      float inputTempVoltage = 71;
+    //      float inputHumidityVoltage = 60;
+    //      float inputDoorVoltage = 1;
+    //
+    //      // Convert the input from voltage
+    //      temp.floatVal = tempConvert(inputTempVoltage);
+    //      humidity.floatVal = humidityConvert(inputHumidityVoltage);
+    //      door.floatVal = doorConvert(inputDoorVoltage);
+    //
+    //      temp.floatVal = (inputTempVoltage);
+    //      humidity.floatVal = (inputHumidityVoltage);
+    //      door.floatVal = (inputDoorVoltage);
+    //
+    //      temp.floatVal += random(0, variance * 10) / 10 - variance / 2;
+    //      humidity.floatVal += random(0, variance * 10) / 10 - variance / 2;
+    //      Serial.write(temp.byteVal, bytesPerFloat);
+    //      Serial.write(humidity.byteVal, bytesPerFloat);
+    //      Serial.write(door.byteVal, bytesPerFloat);
+    //    } else {
+    float tempC = getTempCVal(i);
+    temp.floatVal = getTempFVal(tempC);
+    humidity.floatVal = getHumidityVal(i, tempC);
+    door.floatVal = getDoorVal(i);
 
-      // Convert the input from voltage
-      temp.floatVal = tempConvert(inputTempVoltage);
-      humidity.floatVal = humidityConvert(inputHumidityVoltage);
-      door.floatVal = doorConvert(inputDoorVoltage);
-
-      temp.floatVal = (inputTempVoltage);
-      humidity.floatVal = (inputHumidityVoltage);
-      door.floatVal = (inputDoorVoltage);
-
-      temp.floatVal += random(0, variance * 10) / 10 - variance / 2;
-      humidity.floatVal += random(0, variance * 10) / 10 - variance / 2;
-      Serial.write(temp.byteVal, bytesPerFloat);
-      Serial.write(humidity.byteVal, bytesPerFloat);
-      Serial.write(door.byteVal, bytesPerFloat);
-    } else {
-      float tempC = getTempCVal(i);
-      temp.floatVal = getTempFVal(tempC);
-      humidity.floatVal = getHumidityVal(i, tempC);
-      door.floatVal = getDoorVal(i);
-
-      Serial.write(temp.byteVal, bytesPerFloat);
-      Serial.write(humidity.byteVal, bytesPerFloat);
-      Serial.write(door.byteVal, bytesPerFloat);
-    }
+    Serial.write(temp.byteVal, bytesPerFloat);
+    Serial.write(humidity.byteVal, bytesPerFloat);
+    Serial.write(door.byteVal, bytesPerFloat);
+    //    }
   }
 
   // Finally, send a line-feed, to signal the end of the transmission
@@ -100,7 +104,7 @@ void sendNewData() {
 }
 
 float getTempCVal(int boxNum) {
-  float raw = analogRead(trackedParameters * boxNum);
+  float raw = analogRead(analogTrackedParameters * boxNum);
   float rawVolts = raw * (aRefVoltage / 1023.0);
   float tempC = (rawVolts - .5) * 100 + TEMPCCAL;
   return tempC;
@@ -112,7 +116,7 @@ float getTempFVal(int tempC) {
 }
 
 float getHumidityVal(int boxNum, float tempC) {
-  float raw = analogRead(trackedParameters * boxNum + 1);
+  float raw = analogRead(analogTrackedParameters * boxNum + 1);
   float rawVolts = raw * (aRefVoltage / 1023.0);
   float sensorRH = ((rawVolts / aRefVoltage) - .1515) / .00636;
   float trueRH = sensorRH / (1.0546 - .00216 * tempC);
