@@ -21,10 +21,10 @@ class birdBox {
 
   // Parameters for keeping track of door-related warnings
   // Social time will be tracked by using two Lists.  The first is a List of Booleans, which store the raw data of when the door is open.  Every checkDoorPeriod minutes, this list will be summed and stored into the second List (of Integers), to keep a low-resolution memory of when the door was open
-  float doorTimePeriodHrs = 24; // Hours
-  float socialTimeRequiredHrs = 1; // Hours
+  float doorTimePeriodHrs = 24; // Number of hours that a social time checking cycle will last (i.e. socialTimeRequiredHrs of open door time must occur every doorTimePeriodHrs)
+  float socialTimeRequiredHrs = 1; // Number of hours that the door must be open per doorTimePeriodHrs
   boolean readyToCheckSocial = false; // If doorTimePeriodHrs has passed since the beginning of the program (allowed to start checking for social time)
-  float doorOpenUpperLimitHrs = 12; // Hours
+  float doorOpenUpperLimitHrs = 12; // Number of hours that the door cannot remain open for continuously
   float checkDoorPeriodMin = 10; // Minutes - Period between checking the amount of social time
   long doorTimePeriod; // Same as above, but will be converted into milliseconds
   long socialTimeRequired; // Same as above, but will be converted into milliseconds
@@ -420,10 +420,10 @@ class birdBox {
       ioDebug("Creating File Writer");
       ioDebug("Current directory: " + writerDirectory);
 
-      // Check if the writerDirectory exists (if not, use the standard user pathway)
+      // Check if the writerDirectory exists (if not, create it)
       File writerDirectoryFile = new File(writerDirectory);
       if (!(writerDirectoryFile.exists())) {
-        // Set the main path to be the user's main directory
+        // Create the writerDirectory, which is a subdirectory of the mainDirectory
         errorReporting("Could not find directory \"" + writerDirectory + "\".  Creating it.");
         writerDirectoryFile.mkdir();
       }
@@ -1012,7 +1012,8 @@ class birdBox {
             setStatus(status, SOCIALNEEDED);
             doorDebug("Total time open is less than required social time (" + (float)socialTimeRequired/millisPerHour + " hours): Social time needed");
           } else {
-            // If the door is open, then don't set the social time needed flag, because it may be in the processing of being taken care of
+            // If the door is open, then don't set the social time needed flag, because it may be in the process of being taken care of
+            clearStatus(status, SOCIALNEEDED);
             doorDebug("Total time open is less than required social time (" + (float)socialTimeRequired/millisPerHour + " hours), but door is open.  Waiting.");
           }
         } else {

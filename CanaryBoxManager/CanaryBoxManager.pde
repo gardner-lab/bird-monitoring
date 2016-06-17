@@ -94,6 +94,7 @@ void setup() {
   // Set parameters
   int fetchTime = 2000; // Number of milliseconds to wait before getting new data
   int baudRate = 57600; // Baudrate for the serial connection
+  String computerUserName; // The username for the system (used to locate the bird_monitoring/bird-monitoring folder)
   String arduinoPortName;
 
   // Determine which operating system is being used
@@ -104,11 +105,14 @@ void setup() {
   }
 
   // Set the main directory
+  mainDirectory = System.getProperty("user.dir")+sep+"Documents"+sep+"bird_monitoring"+sep;
+  
+  // Set the Arduino port number
   if (currentOS == WINDOWS) {
-    mainDirectory = "C:"+sep+"Users"+sep+"Nathan"+sep+"Documents"+sep+"bird_monitoring"+sep;
+    // Windows machine
     arduinoPortName = "COM4";
   } else {
-    mainDirectory = sep+"Users"+sep+"sambrown"+sep+"Documents"+sep+"Classes"+sep+"Gardner Rotation"+sep+"bird-monitoring"+sep;
+    // Other (assuming Mac) machine
     arduinoPortName = "/dev/cu.usbserial-A700flOS";
   }
 

@@ -4,8 +4,8 @@
 // Parameters
 int numBoxes = 3;
 static int bytesPerFloat = 4;
-static int trackedParameters = 3; // Number of parameters that are being sent per box
 static int analogTrackedParameters = 2; // Number of analog parameters tracked per box
+static int digitalTrackedParameters = 1; // Number of digital parameters tracked per box
 static int LF = 10; // Line-feed in ASCII
 
 void setup() {
@@ -21,6 +21,9 @@ void setup() {
   for (int i = startDigiPin; i < (2 + numBoxes); i++) {
     pinMode(i, INPUT);
   }
+
+  // Setup the number of tracked parameters
+  trackedParameters = analogTrackedParameters + digitalTrackedParameters;  // Number of parameters that are being sent per box
 }
 
 void loop() {
@@ -125,7 +128,7 @@ float getHumidityVal(int boxNum, float tempC) {
 
 float getDoorVal(int boxNum) {
   float doorClosed;
-  int val = digitalRead(2 + boxNum);
+  int val = digitalRead(digitalTrackedParameters*boxNum + 2);
   if (val == HIGH) {
     doorClosed = 1;
   } else {
