@@ -1,0 +1,40 @@
+Primary color,Secondary Color,Pin,Redundancy Group,Current Use
+Brown,Brown,1,,Ground
+Red,Red,2,,
+Orange,Orange,3,,
+Pink,Pink,4,,Box 1 Door
+Pink,White,5,,Box 1 Humidity
+Pink,Red,6,,
+Yellow,Yellow,7,,Box 2 Temperature
+Light Green,Light Green,8,,Box 3 Humidity
+Green,Blue,9,,3.3V
+Blue,Dark Blue,10,,Box 2 Door
+Blue,Cyan,11,,Box 3 Temperature
+Blue,Red,12,,Box 2 Humidity
+Cyan,Yellow,13,,
+Blue,Blue,14,1,
+Purple,Purple,14,1,
+Gray,Gray,15,,Box 3 Door
+Gray,Yellow,16,,Box 1 Temperature
+White,White,17,,5V
+Brown,White,18,2,
+Purple,White,18,2,
+Orange,Black,19,3,
+Red,Black,19,3,
+Pink,Orange,20,4,
+Pink,Black,20,4,
+Pink,Purple,21,5,
+Yellow,Brown,21,5,
+Green,Red,22,6,
+Green,Dark Green,22,6,
+Blue,Black,23,7,
+Gray,Black,23,7,
+Blue,White,24,8,
+Cyan,Green,24,8,
+Black,White,25,9,
+Gray,Green,25,9,
+White,Green,None,10,
+White,Yellow,None,10,
+,,,,
+,,,,
+,,,,
