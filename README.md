@@ -49,8 +49,8 @@ The user will be notified of any problems that may occur within the box via a nu
 6. Arduino connection problems (incorrect number of boxes/parameters sent from Arduino)
 
 A picture of the GUI:
-![CanaryBoxManager GUI](https://github.com/samuelgbrown/bird-monitoring/CanaryBoxManagerGUI.png)
-![CanaryBoxManager GUI - Annotated](https://github.com/samuelgbrown/bird-monitoring/CanaryBoxManagerGUI Annotated.png)
+![CanaryBoxManager GUI](CanaryBoxGUI.png)
+![CanaryBoxManager GUI - Annotated](CanaryBoxGUI Annotated.png)
 
 # Using the program
 ##1. Initial setup on a new system
@@ -183,7 +183,7 @@ More information about the format of the data files can be found the "Reference"
 
 ##2. Setting up a box board
 - All of the supplies listed in the [`Required Hardware.csv`] file in this repository will be needed.
-- Using the [breadboard], [temperature sensor], [humidity sensor], [door sensor], and resistors, assemble the circuit shown in [`Bread_Board_Circuit.pdf](bird-monitoring/Hardware/Bread_Board_Circuit.pdf).
+- Using the [breadboard], [temperature sensor], [humidity sensor], [door sensor], and resistors, assemble the circuit shown in [`Bread_Board_Circuit.pdf](/Hardware/Box_Board_Circuit.pdf).
   - The power will be provided by the Arduino via the power board, so wires extending from the power rails on the box board should be present.  The negative ends of the power supply should connect to the ground of the Arduino (not seen in the circuit), so there should be a third wire extending from the ground rail of the box board.
   - Pay special care to the lengths of the cables attaching each sensor.  Using an [inline splice solder](http://www.instructables.com/id/Soldering-Tutorial-Inline-Splicing/?ALLSTEPS), the door sensor's cables should be extended by about 1.5x, and the [humidity sensor] and [temperature sensor] cables should be extended so that they can reach around the enclosure to be fed into the box.
   - Note: Because of the leakage resistor on the [humidity sensor], and the pull-down and current limiting resistors on the [door sensor], the [temperature sensor] is the only sensor whose Vout wire does not need to be attached to the [breadboard].  This wire may be connected directly to the D-sub cable, while the others should have a wire extending from their Vout node on the [breadboard].
@@ -234,44 +234,45 @@ More information about the format of the data files can be found the "Reference"
   - If not, a solution must be devised according to the problem at hand.  You may want to consider taking the bird to the aviary until the environment can be properly managed.
   
 ####1. Temperature too high
-- **Temperature value, blue horizontal bar, and top dashed line on plot flashing red**
+**Temperature value, blue horizontal bar, and top dashed line on plot flashing red**
 - If a humidifier is being used in line with the airpump, consider chilling the water with ice.  If no humidifier is being used, consider adding one with chilled water.  Note that this will most likely increase the humidity.
 - The air line may be run through a long section that goes through a pool of ice water (unexposed to the water, only to the water's temperature).  Note that this may lead to condensation, which may decrease the humidity.
 - Cooling down the lab's air (adjusting HVAC, etc.) may eventually cool down the box's air, but this may take some time.
 
 ####2. Temperature too low
-- **Temperature value, blue horizontal bar, and bottom dashed line on plot flashing red**
+**Temperature value, blue horizontal bar, and bottom dashed line on plot flashing red**
 - If a humidifier is being used in line with the airpump, consider warming the water.  If no humidifier is being used, consider adding one with warm water.  Note that this will most likely increase the humidity.
 - The air line may be run through a long section that goes through a pool of warm water (unexposed to the water, only to the water's temperature).
 - Warming up the lab's air (adjusting HVAC, etc.) may eventually warm up the box's air, but this may take some time.
 
 ####3. Humidity too high
-- **Humidity value, green horizontal bar, and top dashed line on plot flashing red**
+**Humidity value, green horizontal bar, and top dashed line on plot flashing red**
 - If there is a humidifer being used in line with the airpump, consider changing the size of the line that feeds into the water (shorter lines will disturb the water less, which may lead to less moisture/air mixing).  Also consider changing the pressure of the air being put into the humidifier.  Completely removing the humidifer may also be useful.
 - If there is no humidifier being used, a dehumidifier may need to be used.  Consider running the airline through a pool of ice water to create a condenser.  Note that this may lead to a decrease in temperature.
 
 ####4. Humidity too low
-- **Humidity value, green horizontal bar, and bottom dashed line on plot flashing red**
+**Humidity value, green horizontal bar, and bottom dashed line on plot flashing red**
 - If there is a humidifer being used in line with the airpump, consider changing the size of the line that feeds into the water (longer lines will disturb the water more, which may lead to more moisture/air mixing).  Also consider changing the pressure of the air being put into the humidifier.
 - If there is no humidifier being used, consider adding one.
 
 ####5. Social time needed
-- **"Social time needed" appears in flashing red underneath the bird's ID**
+**"Social time needed" appears in flashing red underneath the bird's ID**
 - This indicates that the bird has not had its IACUC required social time for the day (1 hour of social time per 24 hours, by default).
 - Opening the door will make the status disappear.  However, if the door is closed again before the social time requirement is fulfilled, the warning (and email countdown) will start once again.
 
 ####6. Door open too long
-  - **"Door open too long" appears in flashing red underneath the bird's ID**
-  - This indicates that the bird box's door has been left ajar for a long time (12 hours straight, by default).  Simply closing the door will end this status, and reset the "door open too long" timer back to 0.
+**"Door open too long" appears in flashing red underneath the bird's ID**
+- This indicates that the bird box's door has been left ajar for a long time (12 hours straight, by default).  Simply closing the door will end this status, and reset the "door open too long" timer back to 0.
 
 ##2. Bottom right box is not green (Arduino connection issues)
 ####1. Yellow box
-- **The Arduino status box is yellow, and has the text "Communication error"**
+**The Arduino status box is yellow, and has the text "Communication error"**
 - This indicates that the Arduino and the Processing program are mismatched on either the number of boxes being tracked, or the number of parameters being tracked per box.
 - If a new box was added and the program has not been restarted yet, simply restart the Processing program.  If the Arduino software was properly updated (see "Modifying the software" under "Setting up the hardware"), and the connection between the devices is good, the Processing GUI should now appear with the correct number of boxes.
 - If a new tracked parameter was added (in addition to temperature, humidity, and the door sensor), and the Arduino software was properly updated (see "Modifying the software" under "Setting up the hardware"), but the Processing program was not, then the Processing program should be updated by changing `numTrackedParameters` (see "Number of parameters that are being tracked by the Arduino" under "Parameters which may be adjusted").  In addition to this, the Processing program must be updated to store and interpret the new parameters correctly (see "Adding more tracked parameters" under "Extending the program").
+
 ####2. Red box (Disconnected)
-- ** The Arduino box is red, and has the text "Disconnected"**
+**The Arduino box is red, and has the text "Disconnected"**
 - This indicates that the Processing program cannot find the Arduino.
 - Check that the Arduino is connected properly.  The Processing program will attempt to reconnect to the Arduino every 2 seconds.
 - If the program cannot reconnect to the Arduino while it is running, try restarting the Processing program (operating system level limitations sometimes do not allow the program to reacquire a connection to the Arduino while running).
@@ -284,5 +285,5 @@ More information about the format of the data files can be found the "Reference"
 [humidity sensor]: http://sensing.honeywell.com/index.php/ci_id/49692/la_id/1/document/1/re_id/0
 [door sensor]: https://www.adafruit.com/products/375
 [breadboard]: http://www.digikey.com/product-detail/en/sparkfun-electronics/PRT-12702/1568-1083-ND/5230952
-[`Required Hardware.csv`]: https://github.com/samuelgbrown/bird-monitoring/Hardware/Required_Hardware.csv
-[`Hardware/D-Sub Pins.csv`]: https://github.com/samuelgbrown/bird-monitoring/Hardware/D-Sub_Pins.csv
+[`Required Hardware.csv`]: /Hardware/Required_Hardware.csv
+[`Hardware/D-Sub Pins.csv`]: /Hardware/D-Sub_Pins.csv
